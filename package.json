@@ -1,15 +1,19 @@
 {
   "name": "xcode-cloud-mcp",
   "author": "Christian Howe <cj@cjhowe.us>",
-  "version": "1.0.0",
-  "description": "",
-  "private": true,
-  "license": "UNLICENSED",
+  "version": "0.1.0",
+  "description": "MCP server for developing macOS/iOS apps using Xcode Cloud",
+  "license": "Apache-2.0",
   "type": "module",
+  "main": "dist/index.js",
   "files": [
     "dist"
   ],
+  "bin": {
+    "xcode-cloud-mcp": "dist/index.js"
+  },
   "scripts": {
+    "prepare": "bun build --target node src/index.ts --outdir dist",
     "start": "bun run src/index.ts",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
