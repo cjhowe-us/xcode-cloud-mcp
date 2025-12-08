@@ -4,17 +4,13 @@ on:
   push:
     branches: [main]
     paths:
-      - "typescript/xcode-cloud-mcp/**"
-      - ".github/workflows/xcode-cloud-mcp.yml"
+      - 'typescript/xcode-cloud-mcp/**'
+      - '.github/workflows/xcode-cloud-mcp.yml'
   pull_request:
     branches: [main]
     paths:
-      - "typescript/xcode-cloud-mcp/**"
-      - ".github/workflows/xcode-cloud-mcp.yml"
-
-defaults:
-  run:
-    working-directory: typescript/xcode-cloud-mcp
+      - 'typescript/xcode-cloud-mcp/**'
+      - '.github/workflows/xcode-cloud-mcp.yml'
 
 jobs:
   lint-format-test:
