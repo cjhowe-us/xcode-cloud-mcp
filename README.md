@@ -40,8 +40,8 @@ Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "xcode-cloud": {
-      "command": "pnpx",
-      "args": ["xcode-cloud-mcp"],
+      "command": "npx",
+      "args": ["-y", "xcode-cloud-mcp"],
       "env": {
         "APP_STORE_KEY_ID": "your-key-id",
         "APP_STORE_ISSUER_ID": "your-issuer-id",
