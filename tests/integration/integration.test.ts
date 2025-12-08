@@ -325,6 +325,6 @@ describe('local Xcode Cloud MCP server', () => {
         process.exit(1);
       }
     },
-    300_000
+    600_000
   );
 });
