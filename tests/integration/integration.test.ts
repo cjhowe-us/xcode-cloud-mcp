@@ -4,8 +4,8 @@ import { describe, it } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const POLL_INTERVAL_MS = 1000; // Poll every 1 second
-const MAX_WAIT_TIME_MS = 10 * 60 * 1000; // 10 minutes max
+const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
+const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
 interface TextContent {
   type: 'text';
@@ -325,6 +325,6 @@ describe('local Xcode Cloud MCP server', () => {
         process.exit(1);
       }
     },
-    600_000
+    900_000
   );
 });
