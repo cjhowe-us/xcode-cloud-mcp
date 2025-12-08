@@ -32,14 +32,15 @@ monitor progress, and pull logs, warnings, errors, and UI test artifacts.
 
 ### Add MCP Config
 
-#### Claude Desktop setup
+#### Copilot
 
-Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+Add this to `.vscode/.mcp.json` in your workspace or home directory:
 
 ```json
 {
-  "mcpServers": {
-    "xcode-cloud": {
+  "servers": {
+    "XcodeCloud": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "xcode-cloud-mcp"],
       "env": {
@@ -51,6 +52,62 @@ Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`:
   }
 }
 ```
+
+You can also store the environment variables in a `.env` file in your workspace
+folder.
+
+#### Copilot Cloud Agent
+
+Add this to your MCP configuration under Copilot -> Coding Agent in your GitHub
+repository's settings:
+
+```json
+{
+  "mcpServers": {
+    "XcodeCloud": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "xcode-cloud-mcp"],
+      "env": {
+        "APP_STORE_KEY_ID": "COPILOT_MCP_APP_STORE_KEY_ID",
+        "APP_STORE_ISSUER_ID": "COPILOT_MCP_APP_STORE_ISSUER_ID",
+        "APP_STORE_PRIVATE_KEY": "COPILOT_MCP_APP_STORE_PRIVATE_KEY"
+      },
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+Then, add `COPILOT_MCP_APP_STORE_KEY_ID`, `COPILOT_MCP_APP_STORE_ISSUER_ID`, and
+`COPILOT_MCP_APP_STORE_PRIVATE_KEY` Github Actions secrets to your `copilot`
+environment under Environments in your repository settings. If this does not
+exist, try starting a copilot agent in your repository to create it.
+
+Now you can build apps for the Apple platform in a Linux Copilot Cloud Agent!
+
+#### Claude Desktop setup
+
+Add this to `~/Library/Application Support/Claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "XcodeCloud": {
+      "command": "npx",
+      "args": ["-y", "xcode-cloud-mcp"],
+      "env": {
+        "APP_STORE_KEY_ID": "your-key-id",
+        "APP_STORE_ISSUER_ID": "your-issuer-id",
+        "APP_STORE_PRIVATE_KEY": "-----BEGIN PRIVATE KEY-----\n...your private key content...\n-----END PRIVATE KEY-----"
+      }
+    }
+  }
+}
+```
+
+This can be useful to manage your workflows directly, without involving a coding
+agent.
 
 ### First commands to try
 
