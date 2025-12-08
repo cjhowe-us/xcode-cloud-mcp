@@ -1,4 +1,12 @@
-import { describe, it, expect, beforeEach, afterEach, mock, spyOn } from 'bun:test';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  mock,
+  spyOn,
+} from 'bun:test';
 import { AppStoreConnectClient } from './client.js';
 import { AuthManager } from './auth.js';
 
@@ -26,10 +34,14 @@ describe('AppStoreConnectClient', () => {
           data: [
             {
               id: '1',
-              attributes: { name: 'test', productType: 'APP', createdDate: '2025-01-01' },
+              attributes: {
+                name: 'test',
+                productType: 'APP',
+                createdDate: '2025-01-01',
+              },
             },
           ],
-        })
+        }),
       );
 
       const products = await client.products.list();
@@ -53,9 +65,13 @@ describe('AppStoreConnectClient', () => {
         Response.json({
           data: {
             id: 'product-123',
-            attributes: { name: 'test', productType: 'APP', createdDate: '2025-01-01' },
+            attributes: {
+              name: 'test',
+              productType: 'APP',
+              createdDate: '2025-01-01',
+            },
           },
-        })
+        }),
       );
 
       const product = await client.products.getById('product-123');
@@ -82,13 +98,15 @@ describe('AppStoreConnectClient', () => {
               },
             },
           ],
-        })
+        }),
       );
 
       const workflows = await client.workflows.listForProduct('product-123');
 
       expect(workflows).toHaveLength(1);
-      expect(fetchSpy.mock.calls[0][0]).toContain('/v1/ciProducts/product-123/workflows');
+      expect(fetchSpy.mock.calls[0][0]).toContain(
+        '/v1/ciProducts/product-123/workflows',
+      );
     });
 
     it('should get workflow by id', async () => {
@@ -105,7 +123,7 @@ describe('AppStoreConnectClient', () => {
               lastModifiedDate: '2025-01-01',
             },
           },
-        })
+        }),
       );
 
       const workflow = await client.workflows.getById('workflow-123');
@@ -128,7 +146,7 @@ describe('AppStoreConnectClient', () => {
               lastModifiedDate: '2025-01-02',
             },
           },
-        })
+        }),
       );
 
       const workflow = await client.workflows.create('product-123', {
@@ -160,7 +178,7 @@ describe('AppStoreConnectClient', () => {
               lastModifiedDate: '2025-01-03',
             },
           },
-        })
+        }),
       );
 
       await client.workflows.create('product-123', {
@@ -175,7 +193,9 @@ describe('AppStoreConnectClient', () => {
       const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
       const body = JSON.parse(options.body as string);
       expect(body.data.relationships.repository.data.id).toBe('repo-1');
-      expect(body.data.relationships.sourceBranchOrTag.data.id).toBe('git-ref-1');
+      expect(body.data.relationships.sourceBranchOrTag.data.id).toBe(
+        'git-ref-1',
+      );
       expect(body.data.attributes.isEnabled).toBe(false);
       expect(body.data.attributes.clean).toBe(true);
     });
@@ -194,7 +214,7 @@ describe('AppStoreConnectClient', () => {
               isPullRequestBuild: false,
             },
           },
-        })
+        }),
       );
 
       const build = await client.builds.start('workflow-123');
@@ -227,7 +247,7 @@ describe('AppStoreConnectClient', () => {
               isPullRequestBuild: false,
             },
           },
-        })
+        }),
       );
 
       const build = await client.builds.getById('build-123');
@@ -249,7 +269,7 @@ describe('AppStoreConnectClient', () => {
               },
             },
           ],
-        })
+        }),
       );
 
       const builds = await client.builds.listForWorkflow('workflow-123');
@@ -263,16 +283,22 @@ describe('AppStoreConnectClient', () => {
           data: [
             {
               id: 'action-1',
-              attributes: { name: 'Build', actionType: 'BUILD', executionProgress: 'COMPLETE' },
+              attributes: {
+                name: 'Build',
+                actionType: 'BUILD',
+                executionProgress: 'COMPLETE',
+              },
             },
           ],
-        })
+        }),
       );
 
       const actions = await client.builds.getActions('build-123');
 
       expect(actions).toHaveLength(1);
-      expect(fetchSpy.mock.calls[0][0]).toContain('/v1/ciBuildRuns/build-123/actions');
+      expect(fetchSpy.mock.calls[0][0]).toContain(
+        '/v1/ciBuildRuns/build-123/actions',
+      );
     });
   });
 
@@ -282,10 +308,19 @@ describe('AppStoreConnectClient', () => {
         Response.json({
           data: [
             { id: '1', attributes: { fileName: 'build.log', fileType: 'LOG' } },
-            { id: '2', attributes: { fileName: 'app.xcarchive', fileType: 'ARCHIVE' } },
-            { id: '3', attributes: { fileName: 'screenshot.png', fileType: 'SCREENSHOT' } },
+            {
+              id: '2',
+              attributes: { fileName: 'app.xcarchive', fileType: 'ARCHIVE' },
+            },
+            {
+              id: '3',
+              attributes: {
+                fileName: 'screenshot.png',
+                fileType: 'SCREENSHOT',
+              },
+            },
           ],
-        })
+        }),
       );
 
       const artifacts = await client.artifacts.getForBuildRun('build-123');
@@ -298,9 +333,13 @@ describe('AppStoreConnectClient', () => {
 
     it('should download artifact binary', async () => {
       const mockArrayBuffer = new ArrayBuffer(8);
-      fetchSpy.mockResolvedValue(new Response(mockArrayBuffer, { status: 200 }));
+      fetchSpy.mockResolvedValue(
+        new Response(mockArrayBuffer, { status: 200 }),
+      );
 
-      const result = await client.artifacts.download('https://example.com/artifact.zip');
+      const result = await client.artifacts.download(
+        'https://example.com/artifact.zip',
+      );
 
       expect(result).toBeInstanceOf(ArrayBuffer);
     });
@@ -320,12 +359,12 @@ describe('AppStoreConnectClient', () => {
               },
             ],
           }),
-          { status: 401 }
-        )
+          { status: 401 },
+        ),
       );
 
       await expect(client.products.list()).rejects.toThrow(
-        /API Error \(401\): Unauthorized: Invalid JWT token/
+        /API Error \(401\): Unauthorized: Invalid JWT token/,
       );
     });
 

@@ -1,5 +1,9 @@
 import { BaseAPIClient } from '../base-client.js';
-import type { CiWorkflow, CreateWorkflowParams, CreateWorkflowRequest } from '../types.js';
+import type {
+  CiWorkflow,
+  CreateWorkflowParams,
+  CreateWorkflowRequest,
+} from '../types.js';
 
 /**
  * Client for Xcode Cloud Workflows operations
@@ -8,13 +12,19 @@ export class WorkflowsClient extends BaseAPIClient {
   /**
    * List workflows for a specific product
    */
-  async listForProduct(productId: string, options?: { limit?: number }): Promise<CiWorkflow[]> {
+  async listForProduct(
+    productId: string,
+    options?: { limit?: number },
+  ): Promise<CiWorkflow[]> {
     const params: Record<string, string> = {};
     if (options?.limit) {
       params.limit = options.limit.toString();
     }
 
-    const response = await this.get<CiWorkflow[]>(`/v1/ciProducts/${productId}/workflows`, params);
+    const response = await this.get<CiWorkflow[]>(
+      `/v1/ciProducts/${productId}/workflows`,
+      params,
+    );
     return response.data;
   }
 
@@ -22,14 +32,19 @@ export class WorkflowsClient extends BaseAPIClient {
    * Get a specific workflow by ID
    */
   async getById(workflowId: string): Promise<CiWorkflow> {
-    const response = await this.get<CiWorkflow>(`/v1/ciWorkflows/${workflowId}`);
+    const response = await this.get<CiWorkflow>(
+      `/v1/ciWorkflows/${workflowId}`,
+    );
     return response.data;
   }
 
   /**
    * Create a new workflow for a product
    */
-  async create(productId: string, params: CreateWorkflowParams): Promise<CiWorkflow> {
+  async create(
+    productId: string,
+    params: CreateWorkflowParams,
+  ): Promise<CiWorkflow> {
     const payload: CreateWorkflowRequest = {
       data: {
         type: 'ciWorkflows',

@@ -6,7 +6,10 @@ import { parseWorkflowId, parseBuildRunId } from '../utils/uri-parser.js';
 /**
  * Register build trigger tools
  */
-export function registerBuildTools(server: McpServer, client: AppStoreConnectClient) {
+export function registerBuildTools(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // Start a new build
   server.registerTool(
     'start_build',
@@ -17,20 +20,29 @@ export function registerBuildTools(server: McpServer, client: AppStoreConnectCli
         workflowId: z
           .string()
           .describe(
-            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")'
+            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")',
           ),
         gitReferenceId: z
           .string()
           .optional()
           .describe(
-            "Optional: The ID of the git reference (branch/tag) to build. If not specified, uses the workflow's default branch."
+            "Optional: The ID of the git reference (branch/tag) to build. If not specified, uses the workflow's default branch.",
           ),
       },
     },
-    async ({ workflowId, gitReferenceId }: { workflowId: string; gitReferenceId?: string }) => {
+    async ({
+      workflowId,
+      gitReferenceId,
+    }: {
+      workflowId: string;
+      gitReferenceId?: string;
+    }) => {
       try {
         const parsedWorkflowId = parseWorkflowId(workflowId);
-        const buildRun = await client.builds.start(parsedWorkflowId, gitReferenceId);
+        const buildRun = await client.builds.start(
+          parsedWorkflowId,
+          gitReferenceId,
+        );
 
         const formatted = {
           id: buildRun.id,
@@ -60,7 +72,7 @@ export function registerBuildTools(server: McpServer, client: AppStoreConnectCli
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Cancel a running build
@@ -73,7 +85,7 @@ export function registerBuildTools(server: McpServer, client: AppStoreConnectCli
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
@@ -101,6 +113,6 @@ export function registerBuildTools(server: McpServer, client: AppStoreConnectCli
           isError: true,
         };
       }
-    }
+    },
   );
 }

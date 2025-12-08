@@ -6,7 +6,10 @@ import { parseBuildRunId } from '../utils/uri-parser.js';
 /**
  * Register test results tools
  */
-export function registerTestTools(server: McpServer, client: AppStoreConnectClient) {
+export function registerTestTools(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // Get test results summary
   server.registerTool(
     'get_test_results',
@@ -17,7 +20,7 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
@@ -25,7 +28,8 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
       try {
         const parsedBuildRunId = parseBuildRunId(buildRunId);
         const buildRun = await client.builds.getById(parsedBuildRunId);
-        const artifacts = await client.artifacts.getForBuildRun(parsedBuildRunId);
+        const artifacts =
+          await client.artifacts.getForBuildRun(parsedBuildRunId);
 
         const issueCounts = buildRun.attributes.issueCounts;
         const testFailures = issueCounts?.testFailures || 0;
@@ -52,7 +56,7 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
                       : 'No test failures detected.',
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -68,7 +72,7 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Get test artifacts (screenshots, videos) from build run
@@ -81,14 +85,15 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
     async ({ buildRunId }: { buildRunId: string }) => {
       try {
         const parsedBuildRunId = parseBuildRunId(buildRunId);
-        const artifacts = await client.artifacts.getForBuildRun(parsedBuildRunId);
+        const artifacts =
+          await client.artifacts.getForBuildRun(parsedBuildRunId);
 
         const formatted = {
           screenshots: artifacts.screenshots.map((a) => ({
@@ -137,7 +142,7 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
                       : 'No test artifacts found for this build run.',
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -153,6 +158,6 @@ export function registerTestTools(server: McpServer, client: AppStoreConnectClie
           isError: true,
         };
       }
-    }
+    },
   );
 }

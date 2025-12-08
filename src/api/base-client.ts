@@ -50,7 +50,7 @@ export class BaseAPIClient {
    */
   protected async get<T>(
     endpoint: string,
-    params?: Record<string, string>
+    params?: Record<string, string>,
   ): Promise<APIResponse<T>> {
     const url = this.buildUrl(endpoint, params);
     return this.request<T>('GET', url);
@@ -59,7 +59,10 @@ export class BaseAPIClient {
   /**
    * Make a POST request to the API
    */
-  protected async post<T>(endpoint: string, body: unknown): Promise<APIResponse<T>> {
+  protected async post<T>(
+    endpoint: string,
+    body: unknown,
+  ): Promise<APIResponse<T>> {
     const url = this.buildUrl(endpoint);
     return this.request<T>('POST', url, body);
   }
@@ -83,7 +86,9 @@ export class BaseAPIClient {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to download binary: ${response.status} ${response.statusText}`);
+      throw new Error(
+        `Failed to download binary: ${response.status} ${response.statusText}`,
+      );
     }
 
     return response.arrayBuffer();
@@ -105,7 +110,11 @@ export class BaseAPIClient {
   /**
    * Make HTTP request with authentication and error handling
    */
-  private async request<T>(method: string, url: string, body?: unknown): Promise<APIResponse<T>> {
+  private async request<T>(
+    method: string,
+    url: string,
+    body?: unknown,
+  ): Promise<APIResponse<T>> {
     const headers: Record<string, string> = {
       Authorization: `Bearer ${this.auth.getToken()}`,
       'Content-Type': 'application/json',
@@ -132,7 +141,9 @@ export class BaseAPIClient {
 
       if (!response.ok) {
         const errorData = data as APIError;
-        const errorMessages = errorData.errors.map((e) => `${e.title}: ${e.detail}`).join('; ');
+        const errorMessages = errorData.errors
+          .map((e) => `${e.title}: ${e.detail}`)
+          .join('; ');
         throw new Error(`API Error (${response.status}): ${errorMessages}`);
       }
 

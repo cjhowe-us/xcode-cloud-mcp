@@ -19,7 +19,9 @@ export class ArtifactsClient extends BaseAPIClient {
    * Get all artifacts for a build run, organized by type
    */
   async getForBuildRun(buildRunId: string): Promise<BuildArtifacts> {
-    const response = await this.get<CiArtifact[]>(`/v1/ciBuildRuns/${buildRunId}/artifacts`);
+    const response = await this.get<CiArtifact[]>(
+      `/v1/ciBuildRuns/${buildRunId}/artifacts`,
+    );
 
     const artifacts: BuildArtifacts = {
       logs: [],

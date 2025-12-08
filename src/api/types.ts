@@ -100,7 +100,12 @@ export interface CiBuildAction {
       warnings: number;
     };
     executionProgress: 'PENDING' | 'RUNNING' | 'COMPLETE';
-    completionStatus?: 'SUCCEEDED' | 'FAILED' | 'ERRORED' | 'CANCELED' | 'SKIPPED';
+    completionStatus?:
+      | 'SUCCEEDED'
+      | 'FAILED'
+      | 'ERRORED'
+      | 'CANCELED'
+      | 'SKIPPED';
   };
   relationships?: {
     buildRun?: {

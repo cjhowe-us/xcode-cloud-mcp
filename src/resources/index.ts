@@ -13,10 +13,15 @@ import { AppStoreConnectClient } from '../api/client.js';
  * schemas so the resources list is generated on each request (not only at
  * startup), keeping it in sync with App Store Connect.
  */
-export function registerResources(server: McpServer, client: AppStoreConnectClient) {
+export function registerResources(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // Handle resources/list dynamically
   (
-    server.server as unknown as { setRequestHandler: typeof server.server.setRequestHandler }
+    server.server as unknown as {
+      setRequestHandler: typeof server.server.setRequestHandler;
+    }
   ).setRequestHandler(ListResourcesRequestSchema, async () => {
     try {
       const products = await client.products.list();
@@ -41,7 +46,10 @@ export function registerResources(server: McpServer, client: AppStoreConnectClie
             });
           }
         } catch (error) {
-          console.error(`Failed to get workflows for product ${product.id}:`, error);
+          console.error(
+            `Failed to get workflows for product ${product.id}:`,
+            error,
+          );
         }
       }
 
@@ -54,7 +62,9 @@ export function registerResources(server: McpServer, client: AppStoreConnectClie
 
   // Handle resources/read dynamically
   (
-    server.server as unknown as { setRequestHandler: typeof server.server.setRequestHandler }
+    server.server as unknown as {
+      setRequestHandler: typeof server.server.setRequestHandler;
+    }
   ).setRequestHandler(ReadResourceRequestSchema, async (request) => {
     const uri = request.params.uri;
 
@@ -113,7 +123,7 @@ export function registerResources(server: McpServer, client: AppStoreConnectClie
       throw new Error(`Unknown resource type: ${type}`);
     } catch (error) {
       throw new Error(
-        `Failed to read resource ${uri}: ${error instanceof Error ? error.message : String(error)}`
+        `Failed to read resource ${uri}: ${error instanceof Error ? error.message : String(error)}`,
       );
     }
   });

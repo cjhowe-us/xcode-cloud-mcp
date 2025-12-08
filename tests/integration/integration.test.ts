@@ -30,7 +30,9 @@ describe('local Xcode Cloud MCP server', () => {
         !process.env.APP_STORE_PRIVATE_KEY
       ) {
         console.error('❌ Missing required environment variables:');
-        console.error('   APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY');
+        console.error(
+          '   APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY',
+        );
         process.exit(1);
       }
 
@@ -42,7 +44,7 @@ describe('local Xcode Cloud MCP server', () => {
         },
         {
           capabilities: {},
-        }
+        },
       );
 
       let buildRunId: string | null = null;
@@ -71,7 +73,10 @@ describe('local Xcode Cloud MCP server', () => {
           arguments: {},
         });
 
-        if (!productsResult.content || (productsResult.content as TextContent[]).length === 0) {
+        if (
+          !productsResult.content ||
+          (productsResult.content as TextContent[]).length === 0
+        ) {
           console.error('❌ No products returned from MCP');
           process.exit(1);
         }
@@ -83,8 +88,8 @@ describe('local Xcode Cloud MCP server', () => {
         }
 
         const productsData = JSON.parse(productsContent.text);
-        const enthrallProduct = productsData.products.find((p: { name: string }) =>
-          p.name.toLowerCase().includes('enthrall')
+        const enthrallProduct = productsData.products.find(
+          (p: { name: string }) => p.name.toLowerCase().includes('enthrall'),
         );
 
         if (!enthrallProduct) {
@@ -104,7 +109,10 @@ describe('local Xcode Cloud MCP server', () => {
           },
         });
 
-        if (!workflowsResult.content || (workflowsResult.content as TextContent[]).length === 0) {
+        if (
+          !workflowsResult.content ||
+          (workflowsResult.content as TextContent[]).length === 0
+        ) {
           console.error('❌ No workflows returned from MCP');
           process.exit(1);
         }
@@ -127,7 +135,9 @@ describe('local Xcode Cloud MCP server', () => {
         console.log(`   Enabled: ${workflow.isEnabled}\n`);
 
         if (!workflow.isEnabled) {
-          console.error('❌ Workflow is disabled. Enable it in Xcode Cloud settings.');
+          console.error(
+            '❌ Workflow is disabled. Enable it in Xcode Cloud settings.',
+          );
           process.exit(1);
         }
 
@@ -140,12 +150,17 @@ describe('local Xcode Cloud MCP server', () => {
           },
         });
 
-        if (!startBuildResult.content || (startBuildResult.content as TextContent[]).length === 0) {
+        if (
+          !startBuildResult.content ||
+          (startBuildResult.content as TextContent[]).length === 0
+        ) {
           console.error('❌ No build result returned from MCP');
           process.exit(1);
         }
 
-        const startBuildContent = (startBuildResult.content as TextContent[])[0];
+        const startBuildContent = (
+          startBuildResult.content as TextContent[]
+        )[0];
         if (startBuildContent.type !== 'text') {
           console.error('❌ Unexpected content type from start_build');
           process.exit(1);
@@ -176,7 +191,10 @@ describe('local Xcode Cloud MCP server', () => {
             },
           });
 
-          if (!buildRunResult.content || (buildRunResult.content as TextContent[]).length === 0) {
+          if (
+            !buildRunResult.content ||
+            (buildRunResult.content as TextContent[]).length === 0
+          ) {
             console.error('❌ No build run result returned from MCP');
             process.exit(1);
           }
@@ -194,7 +212,7 @@ describe('local Xcode Cloud MCP server', () => {
           const status = buildRun.completionStatus;
 
           console.log(
-            `   [${elapsed}s] Progress: ${progress}${status ? ` - ${status}` : ''} (check #${iterations})`
+            `   [${elapsed}s] Progress: ${progress}${status ? ` - ${status}` : ''} (check #${iterations})`,
           );
 
           if (progress === 'COMPLETE') {
@@ -203,7 +221,9 @@ describe('local Xcode Cloud MCP server', () => {
           }
 
           if (Date.now() - startTime > MAX_WAIT_TIME_MS) {
-            console.log('\n⚠️  Build did not complete within 10 minutes. Stopping monitor.');
+            console.log(
+              '\n⚠️  Build did not complete within 10 minutes. Stopping monitor.',
+            );
             console.log(`   Current status: ${progress}`);
             process.exit(1);
           }
@@ -221,8 +241,12 @@ describe('local Xcode Cloud MCP server', () => {
           console.log(`   Issues:`);
           console.log(`     - Errors: ${buildRun.issueCounts.errors}`);
           console.log(`     - Warnings: ${buildRun.issueCounts.warnings}`);
-          console.log(`     - Analyzer Warnings: ${buildRun.issueCounts.analyzerWarnings}`);
-          console.log(`     - Test Failures: ${buildRun.issueCounts.testFailures}`);
+          console.log(
+            `     - Analyzer Warnings: ${buildRun.issueCounts.analyzerWarnings}`,
+          );
+          console.log(
+            `     - Test Failures: ${buildRun.issueCounts.testFailures}`,
+          );
         }
         console.log();
 
@@ -235,7 +259,10 @@ describe('local Xcode Cloud MCP server', () => {
           },
         });
 
-        if (!actionsResult.content || (actionsResult.content as TextContent[]).length === 0) {
+        if (
+          !actionsResult.content ||
+          (actionsResult.content as TextContent[]).length === 0
+        ) {
           console.error('❌ No actions result returned from MCP');
           process.exit(1);
         }
@@ -254,7 +281,11 @@ describe('local Xcode Cloud MCP server', () => {
             name: string;
             actionType: string;
             completionStatus?: string;
-            issueCounts?: { errors: number; warnings: number; testFailures: number };
+            issueCounts?: {
+              errors: number;
+              warnings: number;
+              testFailures: number;
+            };
           }) => {
             console.log(`   • ${action.name} (${action.actionType})`);
             console.log(`     Status: ${action.completionStatus || 'N/A'}`);
@@ -262,11 +293,11 @@ describe('local Xcode Cloud MCP server', () => {
               const counts = action.issueCounts;
               if (counts.errors || counts.warnings || counts.testFailures) {
                 console.log(
-                  `     Issues: ${counts.errors} errors, ${counts.warnings} warnings, ${counts.testFailures} test failures`
+                  `     Issues: ${counts.errors} errors, ${counts.warnings} warnings, ${counts.testFailures} test failures`,
                 );
               }
             }
-          }
+          },
         );
         console.log();
 
@@ -284,28 +315,40 @@ describe('local Xcode Cloud MCP server', () => {
             testResultsResult.content &&
             (testResultsResult.content as TextContent[]).length > 0
           ) {
-            const testResultsContent = (testResultsResult.content as TextContent[])[0];
+            const testResultsContent = (
+              testResultsResult.content as TextContent[]
+            )[0];
             if (testResultsContent.type === 'text') {
               const testData = JSON.parse(testResultsContent.text);
-              console.log(`   Found ${testData.testResults?.length || 0} test results\n`);
+              console.log(
+                `   Found ${testData.testResults?.length || 0} test results\n`,
+              );
             }
           }
         } catch (error) {
           console.log(
-            `   ⚠️  Test results not available: ${error instanceof Error ? error.message : error}\n`
+            `   ⚠️  Test results not available: ${error instanceof Error ? error.message : error}\n`,
           );
         }
 
         // Final summary
         console.log('✅ Integration Test Complete!\n');
         console.log('Summary:');
-        console.log(`  • Build #${buildRun.number} ${buildRun.completionStatus}`);
+        console.log(
+          `  • Build #${buildRun.number} ${buildRun.completionStatus}`,
+        );
         console.log(`  • All MCP tools verified with real Xcode Cloud build`);
-        console.log(`  • Tools tested: list_products, list_workflows, start_build,`);
-        console.log(`                  get_build_run, get_build_actions, get_test_results`);
+        console.log(
+          `  • Tools tested: list_products, list_workflows, start_build,`,
+        );
+        console.log(
+          `                  get_build_run, get_build_actions, get_test_results`,
+        );
 
         if (buildRun.completionStatus !== 'SUCCEEDED') {
-          console.log('\n⚠️  Note: Build did not succeed, but MCP tools worked correctly');
+          console.log(
+            '\n⚠️  Note: Build did not succeed, but MCP tools worked correctly',
+          );
           process.exit(0); // Still exit 0 since the MCP tools worked
         }
 
@@ -319,12 +362,14 @@ describe('local Xcode Cloud MCP server', () => {
 
         if (buildRunId) {
           console.error(`\n   Build ID: ${buildRunId}`);
-          console.error('   Check Xcode Cloud in App Store Connect for details');
+          console.error(
+            '   Check Xcode Cloud in App Store Connect for details',
+          );
         }
 
         process.exit(1);
       }
     },
-    900_000
+    900_000,
   );
 });

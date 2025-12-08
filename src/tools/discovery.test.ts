@@ -60,7 +60,9 @@ describe('create_workflow tool', () => {
   };
 
   beforeEach(() => {
-    const registerTool = mock<(name: string, config: unknown, cb: ToolHandler) => void>(() => {});
+    const registerTool = mock<
+      (name: string, config: unknown, cb: ToolHandler) => void
+    >(() => {});
     const server = { registerTool } as unknown as McpServer;
 
     clientMocks = {
@@ -74,8 +76,13 @@ describe('create_workflow tool', () => {
       },
     };
 
-    registerDiscoveryTools(server, clientMocks as unknown as AppStoreConnectClient);
-    const createCall = registerTool.mock.calls.find(([name]) => name === 'create_workflow');
+    registerDiscoveryTools(
+      server,
+      clientMocks as unknown as AppStoreConnectClient,
+    );
+    const createCall = registerTool.mock.calls.find(
+      ([name]) => name === 'create_workflow',
+    );
 
     if (!createCall) {
       throw new Error('create_workflow tool was not registered');
@@ -117,7 +124,7 @@ describe('create_workflow tool', () => {
       expect.objectContaining({
         name: 'Demo CI',
         containerFilePath: 'App.xcodeproj',
-      })
+      }),
     );
   });
 });

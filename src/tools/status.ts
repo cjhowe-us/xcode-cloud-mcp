@@ -6,7 +6,10 @@ import { parseWorkflowId, parseBuildRunId } from '../utils/uri-parser.js';
 /**
  * Register build status monitoring tools
  */
-export function registerStatusTools(server: McpServer, client: AppStoreConnectClient) {
+export function registerStatusTools(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // Get build run status
   server.registerTool(
     'get_build_run',
@@ -17,7 +20,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
@@ -60,7 +63,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
           isError: true,
         };
       }
-    }
+    },
   );
 
   // List recent build runs for a workflow
@@ -73,7 +76,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
         workflowId: z
           .string()
           .describe(
-            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")'
+            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")',
           ),
         limit: z
           .number()
@@ -84,7 +87,10 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
     async ({ workflowId, limit }: { workflowId: string; limit?: number }) => {
       try {
         const parsedWorkflowId = parseWorkflowId(workflowId);
-        const buildRuns = await client.builds.listForWorkflow(parsedWorkflowId, { limit });
+        const buildRuns = await client.builds.listForWorkflow(
+          parsedWorkflowId,
+          { limit },
+        );
 
         const formatted = buildRuns.map((run) => ({
           id: run.id,
@@ -107,7 +113,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
                   total: formatted.length,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -123,7 +129,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Get build actions (compile, test, archive) for a build run
@@ -136,7 +142,7 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
@@ -175,6 +181,6 @@ export function registerStatusTools(server: McpServer, client: AppStoreConnectCl
           isError: true,
         };
       }
-    }
+    },
   );
 }

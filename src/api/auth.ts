@@ -88,13 +88,18 @@ export class AuthManager {
  */
 export function createAuthFromEnv(): AuthManager {
   const keyId = process.env.APP_STORE_KEY_ID;
-  const issuerId = process.env.APP_STORE_ISSUER_ID;
-  const privateKey = process.env.APP_STORE_PRIVATE_KEY;
+  if (!keyId) {
+    throw new Error('Missing required environment variables: APP_STORE_KEY_ID');
+  }
 
-  if (!keyId || !issuerId || !privateKey) {
-    throw new Error(
-      'Missing required environment variables: APP_STORE_KEY_ID, APP_STORE_ISSUER_ID, APP_STORE_PRIVATE_KEY'
-    );
+  const issuerId = process.env.APP_STORE_ISSUER_ID;
+  if (!issuerId) {
+    throw new Error('Missing required environment variables: APP_STORE_ISSUER_ID');
+  }
+
+  const privateKey = process.env.APP_STORE_PRIVATE_KEY;
+  if (!privateKey) {
+    throw new Error('Missing required environment variables: APP_STORE_PRIVATE_KEY');
   }
 
   // Remove surrounding quotes from all credentials

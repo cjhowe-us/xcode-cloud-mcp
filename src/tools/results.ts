@@ -6,7 +6,10 @@ import { parseBuildRunId } from '../utils/uri-parser.js';
 /**
  * Register build results tools (logs and issues)
  */
-export function registerResultsTools(server: McpServer, client: AppStoreConnectClient) {
+export function registerResultsTools(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // Get build logs for a specific build run
   server.registerTool(
     'get_build_logs',
@@ -17,14 +20,15 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
     async ({ buildRunId }: { buildRunId: string }) => {
       try {
         const parsedBuildRunId = parseBuildRunId(buildRunId);
-        const artifacts = await client.artifacts.getForBuildRun(parsedBuildRunId);
+        const artifacts =
+          await client.artifacts.getForBuildRun(parsedBuildRunId);
 
         const formatted = {
           logs: artifacts.logs.map((a) => ({
@@ -46,7 +50,10 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
             fileSize: a.attributes.fileSize,
             downloadUrl: a.attributes.downloadUrl,
           })),
-          total: artifacts.logs.length + artifacts.archives.length + artifacts.other.length,
+          total:
+            artifacts.logs.length +
+            artifacts.archives.length +
+            artifacts.other.length,
         };
 
         return {
@@ -55,11 +62,12 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
               type: 'text',
               text: JSON.stringify(
                 {
-                  message: 'Artifacts available. Use the downloadUrl to retrieve files.',
+                  message:
+                    'Artifacts available. Use the downloadUrl to retrieve files.',
                   ...formatted,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -75,7 +83,7 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Get build issues (warnings, errors) from issue counts
@@ -88,7 +96,7 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
         buildRunId: z
           .string()
           .describe(
-            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")'
+            'The build run ID or resource URI (e.g., "xcode-cloud://build-run/abc123" or just "abc123")',
           ),
       },
     },
@@ -117,7 +125,7 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
                     'Issue counts from build run. For detailed logs, use get_build_logs to download log files.',
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -133,6 +141,6 @@ export function registerResultsTools(server: McpServer, client: AppStoreConnectC
           isError: true,
         };
       }
-    }
+    },
   );
 }

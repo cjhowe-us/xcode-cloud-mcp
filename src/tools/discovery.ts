@@ -6,7 +6,10 @@ import { parseProductId, parseWorkflowId } from '../utils/uri-parser.js';
 /**
  * Register discovery tools for finding products and workflows
  */
-export function registerDiscoveryTools(server: McpServer, client: AppStoreConnectClient) {
+export function registerDiscoveryTools(
+  server: McpServer,
+  client: AppStoreConnectClient,
+) {
   // List all Xcode Cloud products (repositories)
   server.registerTool(
     'list_products',
@@ -14,7 +17,10 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
       description:
         'List all Xcode Cloud products (repositories) associated with your Apple Developer account. Each product represents a repository configured for Xcode Cloud.',
       inputSchema: {
-        limit: z.number().optional().describe('Maximum number of products to return (default: 50)'),
+        limit: z
+          .number()
+          .optional()
+          .describe('Maximum number of products to return (default: 50)'),
       },
     },
     async ({ limit }: { limit?: number }) => {
@@ -38,7 +44,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                   total: formatted.length,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -54,7 +60,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
           isError: true,
         };
       }
-    }
+    },
   );
 
   // List workflows for a specific product
@@ -67,7 +73,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
         productId: z
           .string()
           .describe(
-            'The product ID or resource URI (e.g., "xcode-cloud://product/abc123" or just "abc123")'
+            'The product ID or resource URI (e.g., "xcode-cloud://product/abc123" or just "abc123")',
           ),
         limit: z
           .number()
@@ -78,7 +84,10 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
     async ({ productId, limit }: { productId: string; limit?: number }) => {
       try {
         const parsedProductId = parseProductId(productId);
-        const workflows = await client.workflows.listForProduct(parsedProductId, { limit });
+        const workflows = await client.workflows.listForProduct(
+          parsedProductId,
+          { limit },
+        );
 
         const formatted = workflows.map((workflow) => ({
           id: workflow.id,
@@ -99,7 +108,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                   total: formatted.length,
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -115,7 +124,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Create a workflow for a product (with interactive prompts)
@@ -129,33 +138,40 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
           .string()
           .optional()
           .describe(
-            'The product ID or resource URI (e.g., "xcode-cloud://product/abc123"). If omitted, the tool will return available products to choose from.'
+            'The product ID or resource URI (e.g., "xcode-cloud://product/abc123"). If omitted, the tool will return available products to choose from.',
           ),
         name: z
           .string()
           .optional()
           .describe('Name for the workflow (e.g., "CI" or "Nightly Tests")'),
-        description: z.string().optional().describe('Optional description for the workflow'),
+        description: z
+          .string()
+          .optional()
+          .describe('Optional description for the workflow'),
         containerFilePath: z
           .string()
           .optional()
           .describe(
-            'Path to the .xcodeproj or .xcworkspace in the repo (e.g., "App/App.xcodeproj")'
+            'Path to the .xcodeproj or .xcworkspace in the repo (e.g., "App/App.xcodeproj")',
           ),
         repositoryId: z
           .string()
           .optional()
           .describe(
-            'SCM repository ID to associate with the workflow. Defaults to the product primary repository when present.'
+            'SCM repository ID to associate with the workflow. Defaults to the product primary repository when present.',
           ),
         gitReferenceId: z
           .string()
           .optional()
-          .describe('Default git reference (branch or tag) ID for the workflow start condition'),
+          .describe(
+            'Default git reference (branch or tag) ID for the workflow start condition',
+          ),
         isEnabled: z
           .boolean()
           .optional()
-          .describe('Whether the workflow should start enabled (default: true)'),
+          .describe(
+            'Whether the workflow should start enabled (default: true)',
+          ),
         clean: z
           .boolean()
           .optional()
@@ -163,7 +179,9 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
         forceCreate: z
           .boolean()
           .optional()
-          .describe('Create even if workflows already exist for the product (default: false)'),
+          .describe(
+            'Create even if workflows already exist for the product (default: false)',
+          ),
       },
     },
     async ({
@@ -210,7 +228,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                         : { productId: 'your-product-id' },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -219,7 +237,8 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
 
         const parsedProductId = parseProductId(productId);
         const product = await client.products.getById(parsedProductId);
-        const workflows = await client.workflows.listForProduct(parsedProductId);
+        const workflows =
+          await client.workflows.listForProduct(parsedProductId);
 
         if (workflows.length > 0 && !forceCreate) {
           return {
@@ -244,28 +263,31 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                     },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
           };
         }
 
-        const primaryRepositoryId = product.relationships?.primaryRepositories?.data?.[0]?.id;
+        const primaryRepositoryId =
+          product.relationships?.primaryRepositories?.data?.[0]?.id;
         const resolvedRepositoryId = repositoryId ?? primaryRepositoryId;
 
         const missing: string[] = [];
         if (!name) {
-          missing.push('Provide a workflow name (e.g., "CI" or "Nightly Tests").');
+          missing.push(
+            'Provide a workflow name (e.g., "CI" or "Nightly Tests").',
+          );
         }
         if (!containerFilePath) {
           missing.push(
-            'Provide the containerFilePath to your .xcodeproj or .xcworkspace (e.g., "App/App.xcodeproj").'
+            'Provide the containerFilePath to your .xcodeproj or .xcworkspace (e.g., "App/App.xcodeproj").',
           );
         }
         if (!resolvedRepositoryId) {
           missing.push(
-            'Provide repositoryId (scmRepositories) to associate with the workflow because no primary repository was found on the product.'
+            'Provide repositoryId (scmRepositories) to associate with the workflow because no primary repository was found on the product.',
           );
         }
 
@@ -277,7 +299,8 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                 text: JSON.stringify(
                   {
                     status: 'needs_input',
-                    message: 'More information is required to create the workflow.',
+                    message:
+                      'More information is required to create the workflow.',
                     missing,
                     defaults: {
                       isEnabled: isEnabled ?? true,
@@ -287,7 +310,8 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                     exampleArguments: {
                       productId: parsedProductId,
                       name: name ?? `${product.attributes.name} CI`,
-                      containerFilePath: containerFilePath ?? 'App/App.xcodeproj',
+                      containerFilePath:
+                        containerFilePath ?? 'App/App.xcodeproj',
                       repositoryId: resolvedRepositoryId ?? 'scm-repository-id',
                       description: description ?? 'CI workflow created via MCP',
                       isEnabled: isEnabled ?? true,
@@ -296,7 +320,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                     },
                   },
                   null,
-                  2
+                  2,
                 ),
               },
             ],
@@ -337,7 +361,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
                   },
                 },
                 null,
-                2
+                2,
               ),
             },
           ],
@@ -353,7 +377,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
           isError: true,
         };
       }
-    }
+    },
   );
 
   // Get details of a specific workflow
@@ -366,7 +390,7 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
         workflowId: z
           .string()
           .describe(
-            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")'
+            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")',
           ),
       },
     },
@@ -406,6 +430,6 @@ export function registerDiscoveryTools(server: McpServer, client: AppStoreConnec
           isError: true,
         };
       }
-    }
+    },
   );
 }

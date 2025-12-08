@@ -46,7 +46,9 @@ describe('createAuthFromEnv', () => {
     delete process.env.APP_STORE_ISSUER_ID;
     delete process.env.APP_STORE_PRIVATE_KEY;
 
-    expect(() => createAuthFromEnv()).toThrow(/Missing required environment variables/);
+    expect(() => createAuthFromEnv()).toThrow(
+      /Missing required environment variables/,
+    );
   });
 
   it('should throw error if only some environment variables are set', () => {
@@ -54,6 +56,8 @@ describe('createAuthFromEnv', () => {
     delete process.env.APP_STORE_ISSUER_ID;
     delete process.env.APP_STORE_PRIVATE_KEY;
 
-    expect(() => createAuthFromEnv()).toThrow(/Missing required environment variables/);
+    expect(() => createAuthFromEnv()).toThrow(
+      /Missing required environment variables/,
+    );
   });
 });
