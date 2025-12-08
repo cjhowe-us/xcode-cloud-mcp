@@ -69,7 +69,7 @@ export class AuthManager {
           kid: this.config.keyId,
           typ: 'JWT',
         },
-      }
+      },
     );
 
     return { token, expiresAt };
@@ -87,26 +87,35 @@ export class AuthManager {
  * Create AuthManager from environment variables
  */
 export function createAuthFromEnv(): AuthManager {
+  const failedVars = [];
   const keyId = process.env.APP_STORE_KEY_ID;
   if (!keyId) {
-    throw new Error('Missing required environment variables: APP_STORE_KEY_ID');
+    failedVars.push('APP_STORE_KEY_ID');
   }
 
   const issuerId = process.env.APP_STORE_ISSUER_ID;
   if (!issuerId) {
-    throw new Error('Missing required environment variables: APP_STORE_ISSUER_ID');
+    failedVars.push('APP_STORE_ISSUER_ID');
   }
 
   const privateKey = process.env.APP_STORE_PRIVATE_KEY;
   if (!privateKey) {
-    throw new Error('Missing required environment variables: APP_STORE_PRIVATE_KEY');
+    failedVars.push('APP_STORE_PRIVATE_KEY');
+  }
+
+  if (!keyId || !issuerId || !privateKey) {
+    throw new Error(
+      `Missing required environment variables: ${failedVars.join(', ')}`,
+    );
   }
 
   // Remove surrounding quotes from all credentials
   const formattedKeyId = keyId.replace(/^["']|["']$/g, '');
   const formattedIssuerId = issuerId.replace(/^["']|["']$/g, '');
   // Remove surrounding quotes and replace escaped newlines with actual newlines
-  const formattedPrivateKey = privateKey.replace(/^["']|["']$/g, '').replace(/\\n/g, '\n');
+  const formattedPrivateKey = privateKey
+    .replace(/^["']|["']$/g, '')
+    .replace(/\\n/g, '\n');
 
   return new AuthManager({
     keyId: formattedKeyId,
