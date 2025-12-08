@@ -1,0 +1,46 @@
+name: Xcode Cloud MCP
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "typescript/xcode-cloud-mcp/**"
+      - ".github/workflows/xcode-cloud-mcp.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "typescript/xcode-cloud-mcp/**"
+      - ".github/workflows/xcode-cloud-mcp.yml"
+
+defaults:
+  run:
+    working-directory: typescript/xcode-cloud-mcp
+
+jobs:
+  lint-format-test:
+    name: Lints, formats, and tests the Xcode Cloud MCP server
+    runs-on: ubuntu-latest
+    env:
+      APP_STORE_KEY_ID: ${{ secrets.APP_STORE_KEY_ID }}
+      APP_STORE_ISSUER_ID: ${{ secrets.APP_STORE_ISSUER_ID }}
+      APP_STORE_PRIVATE_KEY: ${{ secrets.APP_STORE_PRIVATE_KEY }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Lint code
+        run: bun lint
+
+      - name: Check formatting
+        run: bun format
+
+      - name: Run all tests
+        run: bun test
