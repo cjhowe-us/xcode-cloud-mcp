@@ -1,4 +1,4 @@
-name: Xcode Cloud MCP
+name: Continuous Integration
 
 on:
   push:
