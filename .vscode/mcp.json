@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "XcodeCloud": {
+      "command": "npx",
+      "args": ["-y", "xcode-cloud-mcp"]
+    }
+  }
+}

@@ -7,8 +7,9 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds (server-side)
 const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
-// The test app name - this is the Xcode project in TestFixtures/XcodeCloudTestApp
-const TEST_APP_NAME = 'XcodeCloudTestApp';
+// The test app name - use env var or fall back to XcodeCloudTestApp (in TestFixtures/)
+// When XcodeCloudTestApp is registered in Xcode Cloud, remove the fallback
+const TEST_APP_NAME = process.env.TEST_APP_NAME || 'XcodeCloudTestApp';
 
 interface TextContent {
   type: 'text';
@@ -83,6 +84,11 @@ async function callToolAndParse<T>(
     throw new Error(
       `Unexpected content type from ${toolName}: ${content.type}`,
     );
+  }
+
+  // Check if the response is an error message (starts with "Error")
+  if (content.text.startsWith('Error')) {
+    throw new Error(content.text);
   }
 
   return JSON.parse(content.text) as T;
@@ -450,16 +456,29 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           sanityChecksPassed++;
         }
 
-        // Check 3: Test results are available
+        // Check if workflow includes tests
+        const hasTestAction = actionsData.actions.some(
+          (a) => a.actionType === 'TEST',
+        );
+
+        // Check 3: Test results are available (only required if TEST action exists)
         console.log('   Check 3: Test results available');
         if (testResults) {
           console.log(
             `      ✓ Test results retrieved (build #${testResults.buildNumber})`,
           );
           sanityChecksPassed++;
-        } else {
-          console.log('      ✗ Test results not available');
+        } else if (hasTestAction) {
+          console.log(
+            '      ✗ Test results not available (but tests were configured)',
+          );
           sanityChecksFailed++;
+        } else {
+          console.log(
+            '      ⚠️  Test results not available (no TEST action in workflow)',
+          );
+          // Not a failure if no tests were configured
+          sanityChecksPassed++;
         }
 
         // Check 4: Screenshots available (UI tests should generate screenshots)
