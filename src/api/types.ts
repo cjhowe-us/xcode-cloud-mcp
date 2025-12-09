@@ -238,7 +238,7 @@ export interface CiAction {
   platform?: CiPlatform;
   scheme?: string;
   isRequiredToPass?: boolean;
-  testConfiguration?: {
+  testConfig?: {
     kind?: 'USE_SCHEME_SETTINGS' | 'SPECIFIC_TEST_PLANS';
     testPlanName?: string;
     testDestinations?: CiTestDestination[];

@@ -4,6 +4,21 @@ import { AppStoreConnectClient } from '../api/client.js';
 import { parseWorkflowId, parseProductId } from '../utils/uri-parser.js';
 import type { CiAction, CiBranchStartCondition } from '../api/types.js';
 
+// Zod schemas for test destination configuration
+const CiTestDestinationSchema = z.object({
+  deviceTypeName: z.string().optional().describe('Device type name (e.g., "iPhone 16")'),
+  deviceTypeIdentifier: z
+    .string()
+    .optional()
+    .describe('Device type identifier (e.g., "com.apple.CoreSimulator.SimDeviceType.iPhone-16")'),
+  runtimeName: z.string().optional().describe('Runtime name (e.g., "iOS 18.1")'),
+  runtimeIdentifier: z
+    .string()
+    .optional()
+    .describe('Runtime identifier (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-1")'),
+  kind: z.enum(['SIMULATOR', 'MAC']).optional().describe('Kind of test destination'),
+});
+
 // Zod schemas for workflow action configuration
 const CiActionSchema = z.object({
   name: z.string().describe('Display name for the action'),
@@ -34,6 +49,20 @@ const CiActionSchema = z.object({
     .boolean()
     .optional()
     .describe('Whether this action must pass for the build to succeed'),
+  testConfig: z
+    .object({
+      kind: z
+        .enum(['USE_SCHEME_SETTINGS', 'SPECIFIC_TEST_PLANS'])
+        .optional()
+        .describe('Test configuration kind'),
+      testPlanName: z.string().optional().describe('Name of the test plan to use'),
+      testDestinations: z
+        .array(CiTestDestinationSchema)
+        .optional()
+        .describe('Test destinations for running tests'),
+    })
+    .optional()
+    .describe('Test configuration (required for TEST actions)'),
 });
 
 /**
@@ -193,6 +222,54 @@ export function registerWorkflowManagementTools(
             {
               type: 'text',
               text: `Error listing compatible macOS versions: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
+
+  // Get test destinations for an Xcode version
+  server.registerTool(
+    'get_test_destinations',
+    {
+      description:
+        'Get available test destinations (simulators/devices) for a specific Xcode version. Use these when configuring TEST actions in workflows.',
+      inputSchema: {
+        xcodeVersionId: z
+          .string()
+          .describe('The Xcode version ID to get test destinations for'),
+      },
+    },
+    async ({ xcodeVersionId }: { xcodeVersionId: string }) => {
+      try {
+        const xcodeVersion =
+          await client.xcodeVersions.getWithTestDestinations(xcodeVersionId);
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  xcodeVersionId,
+                  xcodeVersion: xcodeVersion.attributes.name,
+                  testDestinations: xcodeVersion.attributes.testDestinations || [],
+                  total: xcodeVersion.attributes.testDestinations?.length || 0,
+                },
+                null,
+                2,
+              ),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error getting test destinations: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
           isError: true,

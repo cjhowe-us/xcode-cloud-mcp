@@ -1,6 +1,6 @@
 import 'dotenv/config';
 
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, afterAll } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
@@ -8,8 +8,8 @@ const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds (server-side)
 const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
 // The test app name - use env var or fall back to XcodeCloudMcpTestApp (in test-fixtures/)
-// When XcodeCloudMcpTestApp is registered in Xcode Cloud, remove the fallback
 const TEST_APP_NAME = process.env.TEST_APP_NAME || 'XcodeCloudMcpTestApp';
+const TEST_WORKFLOW_NAME = 'Integration Test CI';
 
 interface TextContent {
   type: 'text';
@@ -94,13 +94,43 @@ async function callToolAndParse<T>(
   return JSON.parse(content.text) as T;
 }
 
+interface TestDestination {
+  deviceTypeName?: string;
+  deviceTypeIdentifier?: string;
+  runtimeName?: string;
+  runtimeIdentifier?: string;
+  kind?: string;
+}
+
 describe('Xcode Cloud MCP Integration Tests', () => {
+  // Track created workflow for cleanup
+  let createdWorkflowId: string | null = null;
+  let mcpClient: Client | null = null;
+
+  afterAll(async () => {
+    // Cleanup: Delete the workflow we created
+    if (createdWorkflowId && mcpClient) {
+      try {
+        console.log('\n🧹 Cleanup: Deleting test workflow...');
+        await callToolAndParse<{ status: string }>(
+          mcpClient,
+          'delete_workflow',
+          { workflowId: createdWorkflowId },
+        );
+        console.log('   ✓ Workflow deleted successfully\n');
+      } catch (error) {
+        console.error('   ⚠️  Failed to delete workflow:', error);
+      }
+      await mcpClient.close();
+    }
+  });
+
   it.serial(
-    'can trigger build and retrieve test results with artifacts',
+    'can create workflow, trigger build, retrieve test results, and cleanup',
     async () => {
       console.log('🚀 Xcode Cloud MCP Integration Test');
       console.log(`Testing with project: ${TEST_APP_NAME}`);
-      console.log('This will trigger a REAL build in Xcode Cloud via MCP\n');
+      console.log('This will CREATE a workflow, trigger a build, and DELETE the workflow\n');
 
       // Check for required environment variables
       if (
@@ -125,6 +155,7 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           capabilities: {},
         },
       );
+      mcpClient = client;
 
       let buildRunId: string | null = null;
 
@@ -162,7 +193,7 @@ describe('Xcode Cloud MCP Integration Tests', () => {
             productsData.products.map((p) => p.name).join(', '),
           );
           console.error(
-            '\n⚠️  Make sure the XcodeCloudTestApp is set up in Xcode Cloud',
+            '\n⚠️  Make sure the XcodeCloudMcpTestApp is set up in Xcode Cloud',
           );
           process.exit(1);
         }
@@ -170,33 +201,105 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         console.log(`   ✓ Found: ${testProduct.name}`);
         console.log(`   ID: ${testProduct.id}\n`);
 
-        // Step 2: Get workflow
-        console.log('⚙️  Step 2: Getting CI workflow...');
-        const workflowsData = await callToolAndParse<{
-          workflows: Array<{ id: string; name: string; isEnabled: boolean }>;
-        }>(client, 'list_workflows', { productId: testProduct.id });
+        // Step 2: Get repository info
+        console.log('📂 Step 2: Getting repository info...');
+        const repoData = await callToolAndParse<{
+          repository: { id: string; repositoryName: string };
+        }>(client, 'get_repository', { productId: testProduct.id });
+        console.log(`   ✓ Repository: ${repoData.repository.repositoryName}`);
+        console.log(`   ID: ${repoData.repository.id}\n`);
 
-        if (workflowsData.workflows.length === 0) {
-          console.error('❌ No workflows found');
-          console.error('⚠️  Set up an Xcode Cloud workflow for this project');
+        // Step 3: Get Xcode versions and test destinations
+        console.log('🛠️  Step 3: Getting Xcode version and test destinations...');
+        const xcodeVersionsData = await callToolAndParse<{
+          xcodeVersions: Array<{ id: string; name: string; version: string }>;
+        }>(client, 'list_xcode_versions', {});
+
+        // Use "Latest Release" Xcode version
+        const latestXcode = xcodeVersionsData.xcodeVersions.find(
+          (v) => v.name === 'Latest Release',
+        ) || xcodeVersionsData.xcodeVersions[0];
+
+        console.log(`   ✓ Using Xcode: ${latestXcode.name} (${latestXcode.version})`);
+
+        // Get test destinations for this Xcode version
+        const testDestData = await callToolAndParse<{
+          testDestinations: TestDestination[];
+        }>(client, 'get_test_destinations', { xcodeVersionId: latestXcode.id });
+
+        // Find an iOS simulator destination
+        const iosSimulator = testDestData.testDestinations.find(
+          (d) => d.kind === 'SIMULATOR' && d.runtimeName?.includes('iOS'),
+        );
+
+        if (!iosSimulator) {
+          console.error('❌ No iOS simulator destination found');
           process.exit(1);
         }
 
-        const workflow = workflowsData.workflows[0];
-        console.log(`   ✓ Found workflow: ${workflow.name}`);
-        console.log(`   ID: ${workflow.id}`);
-        console.log(`   Enabled: ${workflow.isEnabled}\n`);
+        console.log(`   ✓ Test destination: ${iosSimulator.deviceTypeName} (${iosSimulator.runtimeName})\n`);
 
-        if (!workflow.isEnabled) {
-          console.error(
-            '❌ Workflow is disabled. Enable it in Xcode Cloud settings.',
-          );
-          process.exit(1);
-        }
+        // Step 4: Get compatible macOS version
+        console.log('💻 Step 4: Getting compatible macOS version...');
+        const macOsData = await callToolAndParse<{
+          compatibleMacOsVersions: Array<{ id: string; name: string; version: string }>;
+        }>(client, 'list_compatible_macos_versions', { xcodeVersionId: latestXcode.id });
 
-        // Step 3: Trigger build and wait for completion
+        // Use "Latest Release" macOS version
+        const latestMacOs = macOsData.compatibleMacOsVersions.find(
+          (v) => v.name === 'Latest Release',
+        ) || macOsData.compatibleMacOsVersions[0];
+
+        console.log(`   ✓ Using macOS: ${latestMacOs.name} (${latestMacOs.version})\n`);
+
+        // Step 5: Create workflow with TEST actions
+        console.log('⚙️  Step 5: Creating workflow with TEST actions...');
+
+        const createWorkflowResult = await callToolAndParse<{
+          status: string;
+          workflow: { id: string; name: string; isEnabled: boolean };
+        }>(client, 'create_workflow_with_actions', {
+          productId: testProduct.id,
+          repositoryId: repoData.repository.id,
+          xcodeVersionId: latestXcode.id,
+          macOsVersionId: latestMacOs.id,
+          name: TEST_WORKFLOW_NAME,
+          description: 'Integration test workflow - will be deleted after test',
+          containerFilePath: 'test-fixtures/XcodeCloudMcpTestApp/XcodeCloudMcpTestApp.xcodeproj',
+          actions: [
+            {
+              name: 'Build - iOS',
+              actionType: 'BUILD',
+              platform: 'IOS',
+              scheme: 'XcodeCloudMcpTestApp',
+              destination: 'ANY_IOS_SIMULATOR',
+              isRequiredToPass: true,
+            },
+            {
+              name: 'Test - iOS Simulator',
+              actionType: 'TEST',
+              platform: 'IOS',
+              scheme: 'XcodeCloudMcpTestApp',
+              destination: 'ANY_IOS_SIMULATOR',
+              isRequiredToPass: true,
+              testConfig: {
+                kind: 'USE_SCHEME_SETTINGS',
+                testDestinations: [iosSimulator],
+              },
+            },
+          ],
+        });
+
+        createdWorkflowId = createWorkflowResult.workflow.id;
+        console.log(`   ✓ Created workflow: ${createWorkflowResult.workflow.name}`);
+        console.log(`   ID: ${createdWorkflowId}`);
+        console.log(`   Enabled: ${createWorkflowResult.workflow.isEnabled}\n`);
+
+        const workflow = createWorkflowResult.workflow;
+
+        // Step 6: Trigger build and wait for completion
         console.log(
-          '🔨 Step 3: Triggering build and waiting for completion...',
+          '🔨 Step 6: Triggering build and waiting for completion...',
         );
         console.log(
           '   (Server polls internally - this may take several minutes)\n',
@@ -245,8 +348,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         );
         console.log(`   Server poll count: ${buildRun.pollCount}\n`);
 
-        // Step 4: Get build results summary
-        console.log('📊 Step 4: Retrieving build results...');
+        // Step 7: Get build results summary
+        console.log('📊 Step 7: Retrieving build results...');
         console.log(`   Final Status: ${buildRun.completionStatus}`);
         console.log(`   Started: ${buildRun.startedDate}`);
         console.log(`   Finished: ${buildRun.finishedDate}`);
@@ -264,8 +367,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         }
         console.log();
 
-        // Step 5: Get build actions
-        console.log('🔍 Step 5: Getting build actions...');
+        // Step 8: Get build actions
+        console.log('🔍 Step 8: Getting build actions...');
         const actionsData = await callToolAndParse<{
           actions: Array<{
             name: string;
@@ -295,8 +398,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         });
         console.log();
 
-        // Step 6: Get test results
-        console.log('🧪 Step 6: Getting test results...');
+        // Step 9: Get test results
+        console.log('🧪 Step 9: Getting test results...');
         let testResults: TestResultsResult | null = null;
         try {
           testResults = await callToolAndParse<TestResultsResult>(
@@ -320,9 +423,9 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         }
         console.log();
 
-        // Step 7: Get test artifacts (screenshots, videos)
+        // Step 10: Get test artifacts (screenshots, videos)
         console.log(
-          '📸 Step 7: Getting test artifacts (screenshots, videos)...',
+          '📸 Step 10: Getting test artifacts (screenshots, videos)...',
         );
         let testArtifacts: TestArtifactsResult | null = null;
         try {
@@ -366,8 +469,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         }
         console.log();
 
-        // Step 8: Get build logs
-        console.log('📋 Step 8: Getting build logs...');
+        // Step 11: Get build logs
+        console.log('📋 Step 11: Getting build logs...');
         let buildLogs: BuildLogsResult | null = null;
         try {
           buildLogs = await callToolAndParse<BuildLogsResult>(
@@ -393,8 +496,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         }
         console.log();
 
-        // Step 9: Get build issues
-        console.log('🔴 Step 9: Getting build issues...');
+        // Step 12: Get build issues
+        console.log('🔴 Step 12: Getting build issues...');
         let buildIssues: BuildIssuesResult | null = null;
         try {
           buildIssues = await callToolAndParse<BuildIssuesResult>(
@@ -420,7 +523,7 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         // ==========================================
         // SANITY CHECKS - Verify expected outputs
         // ==========================================
-        console.log('✅ Step 10: Running sanity checks...\n');
+        console.log('✅ Step 13: Running sanity checks...\n');
 
         let sanityChecksPassed = 0;
         let sanityChecksFailed = 0;
@@ -590,13 +693,13 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           `  • Server-side polling saved ${buildRun.pollCount} client tool calls`,
         );
         console.log(`  • All MCP tools verified with real Xcode Cloud build`);
-        console.log(
-          `  • Tools tested: list_products, list_workflows, start_build_and_wait,`,
-        );
-        console.log(
-          `                  get_build_actions, get_test_results, get_test_artifacts,`,
-        );
-        console.log(`                  get_build_logs, get_build_issues`);
+        console.log('  • Tools tested:');
+        console.log('      - list_products, get_repository');
+        console.log('      - list_xcode_versions, get_test_destinations, list_compatible_macos_versions');
+        console.log('      - create_workflow_with_actions, delete_workflow');
+        console.log('      - start_build_and_wait, get_build_actions');
+        console.log('      - get_test_results, get_test_artifacts');
+        console.log('      - get_build_logs, get_build_issues');
 
         // Use expect assertions for test framework
         expect(sanityChecksFailed).toBe(0);
@@ -608,7 +711,7 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           console.log('   (our test project has intentionally failing tests)');
         }
 
-        await client.close();
+        // Note: Client will be closed in afterAll along with workflow cleanup
       } catch (error) {
         console.error('\n❌ Integration test failed:', error);
         if (error instanceof Error) {
@@ -621,6 +724,10 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           console.error(
             '   Check Xcode Cloud in App Store Connect for details',
           );
+        }
+
+        if (createdWorkflowId) {
+          console.error(`   Workflow ID: ${createdWorkflowId} (will be cleaned up)`);
         }
 
         throw error;

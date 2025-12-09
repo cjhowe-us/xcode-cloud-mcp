@@ -50,4 +50,15 @@ export class XcodeVersionsClient extends BaseAPIClient {
     >(`/v1/ciXcodeVersions/${xcodeVersionId}/macOsVersions`, params);
     return response.data;
   }
+
+  /**
+   * Get Xcode version with test destinations included
+   */
+  async getWithTestDestinations(xcodeVersionId: string): Promise<CiXcodeVersion> {
+    const response = await this.get<CiXcodeVersion>(
+      `/v1/ciXcodeVersions/${xcodeVersionId}`,
+      { 'fields[ciXcodeVersions]': 'name,version,testDestinations' },
+    );
+    return response.data;
+  }
 }
