@@ -1,4 +1,4 @@
-name: XcodeCloudTestApp
+name: XcodeCloudMcpTestApp
 options:
   bundleIdPrefix: com.xcodecloud.mcp
   deploymentTarget:
@@ -15,7 +15,7 @@ settings:
     CODE_SIGN_STYLE: Automatic
 
 targets:
-  XcodeCloudTestApp:
+  XcodeCloudMcpTestApp:
     type: application
     platform: iOS
     sources:
@@ -35,9 +35,9 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: true
         INFOPLIST_KEY_UILaunchScreen_Generation: true
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: 'UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight'
-        INFOPLIST_KEY_CFBundleDisplayName: 'XC Test App'
+        INFOPLIST_KEY_CFBundleDisplayName: 'XC MCP Test'
 
-  XcodeCloudTestAppTests:
+  XcodeCloudMcpTestAppTests:
     type: bundle.unit-test
     platform: iOS
     sources:
@@ -45,16 +45,16 @@ targets:
         excludes:
           - '**/.DS_Store'
     dependencies:
-      - target: XcodeCloudTestApp
+      - target: XcodeCloudMcpTestApp
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_GENERATION_MODE: GeneratedFile
         PRODUCT_BUNDLE_IDENTIFIER: com.xcodecloud.mcp.testapp.tests
-        TEST_HOST: '$(BUILT_PRODUCTS_DIR)/XcodeCloudTestApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/XcodeCloudTestApp'
+        TEST_HOST: '$(BUILT_PRODUCTS_DIR)/XcodeCloudMcpTestApp.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/XcodeCloudMcpTestApp'
         BUNDLE_LOADER: '$(TEST_HOST)'
 
-  XcodeCloudTestAppUITests:
+  XcodeCloudMcpTestAppUITests:
     type: bundle.ui-testing
     platform: iOS
     sources:
@@ -62,31 +62,31 @@ targets:
         excludes:
           - '**/.DS_Store'
     dependencies:
-      - target: XcodeCloudTestApp
+      - target: XcodeCloudMcpTestApp
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_GENERATION_MODE: GeneratedFile
         PRODUCT_BUNDLE_IDENTIFIER: com.xcodecloud.mcp.testapp.uitests
-        TEST_TARGET_NAME: XcodeCloudTestApp
+        TEST_TARGET_NAME: XcodeCloudMcpTestApp
 
 schemes:
-  XcodeCloudTestApp:
+  XcodeCloudMcpTestApp:
     build:
       targets:
-        XcodeCloudTestApp: all
-        XcodeCloudTestAppTests: [test]
-        XcodeCloudTestAppUITests: [test]
+        XcodeCloudMcpTestApp: all
+        XcodeCloudMcpTestAppTests: [test]
+        XcodeCloudMcpTestAppUITests: [test]
     run:
       config: Debug
     test:
       config: Debug
       gatherCoverageData: true
       targets:
-        - name: XcodeCloudTestAppTests
+        - name: XcodeCloudMcpTestAppTests
           parallelizable: false
           randomExecutionOrder: true
-        - name: XcodeCloudTestAppUITests
+        - name: XcodeCloudMcpTestAppUITests
           parallelizable: false
           randomExecutionOrder: false
       language: en

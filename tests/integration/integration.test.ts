@@ -7,9 +7,9 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds (server-side)
 const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
-// The test app name - use env var or fall back to XcodeCloudTestApp (in TestFixtures/)
-// When XcodeCloudTestApp is registered in Xcode Cloud, remove the fallback
-const TEST_APP_NAME = process.env.TEST_APP_NAME || 'XcodeCloudTestApp';
+// The test app name - use env var or fall back to XcodeCloudMcpTestApp (in test-fixtures/)
+// When XcodeCloudMcpTestApp is registered in Xcode Cloud, remove the fallback
+const TEST_APP_NAME = process.env.TEST_APP_NAME || 'XcodeCloudMcpTestApp';
 
 interface TextContent {
   type: 'text';

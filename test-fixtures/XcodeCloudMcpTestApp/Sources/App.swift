@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct XcodeCloudTestAppApp: App {
+struct XcodeCloudMcpTestApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()

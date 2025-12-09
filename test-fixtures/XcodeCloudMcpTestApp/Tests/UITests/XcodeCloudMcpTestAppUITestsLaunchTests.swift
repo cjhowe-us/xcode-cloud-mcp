@@ -2,7 +2,7 @@ import XCTest
 
 /// Launch tests that capture screenshots on app launch.
 /// These tests verify the app launches successfully and capture screenshots for verification.
-final class XcodeCloudTestAppUITestsLaunchTests: XCTestCase {
+final class XcodeCloudMcpTestAppUITestsLaunchTests: XCTestCase {
 
     override class var runsForEachTargetApplicationUIConfiguration: Bool {
         true

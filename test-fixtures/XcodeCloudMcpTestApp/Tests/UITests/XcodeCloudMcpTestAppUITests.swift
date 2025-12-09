@@ -1,9 +1,9 @@
 import XCTest
 
-/// UI tests for XcodeCloudTestApp.
+/// UI tests for XcodeCloudMcpTestApp.
 /// Contains both passing and intentionally failing tests to verify MCP can read test results.
 /// Screenshots are captured for test artifacts verification.
-final class XcodeCloudTestAppUITests: XCTestCase {
+final class XcodeCloudMcpTestAppUITests: XCTestCase {
 
     var app: XCUIApplication!
 
