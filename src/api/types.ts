@@ -178,6 +178,99 @@ export interface ScmGitReference {
   };
 }
 
+export interface CiXcodeVersion {
+  type: 'ciXcodeVersions';
+  id: string;
+  attributes: {
+    version: string;
+    name: string;
+    testDestinations?: CiTestDestination[];
+  };
+  relationships?: {
+    macOsVersions?: {
+      data: Array<{ type: string; id: string }>;
+    };
+  };
+}
+
+export interface CiMacOsVersion {
+  type: 'ciMacOsVersions';
+  id: string;
+  attributes: {
+    version: string;
+    name: string;
+  };
+  relationships?: {
+    xcodeVersions?: {
+      data: Array<{ type: string; id: string }>;
+    };
+  };
+}
+
+export interface CiTestDestination {
+  deviceTypeName?: string;
+  deviceTypeIdentifier?: string;
+  runtimeName?: string;
+  runtimeIdentifier?: string;
+  kind?: 'SIMULATOR' | 'MAC';
+}
+
+export type CiActionType = 'BUILD' | 'ANALYZE' | 'TEST' | 'ARCHIVE';
+
+export type CiPlatform = 'MACOS' | 'IOS' | 'TVOS' | 'WATCHOS' | 'VISIONOS';
+
+export type CiDestination =
+  | 'ANY_IOS_DEVICE'
+  | 'ANY_IOS_SIMULATOR'
+  | 'ANY_TVOS_DEVICE'
+  | 'ANY_TVOS_SIMULATOR'
+  | 'ANY_WATCHOS_DEVICE'
+  | 'ANY_WATCHOS_SIMULATOR'
+  | 'ANY_MAC'
+  | 'ANY_MAC_CATALYST'
+  | 'ANY_VISIONOS_DEVICE'
+  | 'ANY_VISIONOS_SIMULATOR';
+
+export interface CiAction {
+  name: string;
+  actionType: CiActionType;
+  destination?: CiDestination;
+  platform?: CiPlatform;
+  scheme?: string;
+  isRequiredToPass?: boolean;
+  testConfiguration?: {
+    kind?: 'USE_SCHEME_SETTINGS' | 'SPECIFIC_TEST_PLANS';
+    testPlanName?: string;
+    testDestinations?: CiTestDestination[];
+  };
+  buildDistributionAudience?: 'INTERNAL_ONLY' | 'APP_STORE_ELIGIBLE';
+}
+
+export interface CiBranchPatterns {
+  isAllMatch?: boolean;
+  patterns?: Array<{
+    pattern: string;
+    isPrefix?: boolean;
+  }>;
+}
+
+export interface CiBranchStartCondition {
+  source?: CiBranchPatterns;
+  filesAndFoldersRule?: {
+    mode?: 'START_IF_ANY_FILE_MATCHES' | 'DO_NOT_START_IF_ALL_FILES_MATCH';
+    matchers?: Array<{
+      directory?: string;
+      fileExtension?: string;
+      fileName?: string;
+    }>;
+  };
+  autoCancel?: boolean;
+}
+
+export interface CiManualBranchStartCondition {
+  source?: CiBranchPatterns;
+}
+
 /**
  * Request body for starting a build run
  */
@@ -206,12 +299,32 @@ export interface StartBuildRunRequest {
  */
 export interface CreateWorkflowParams {
   name: string;
-  description?: string;
+  description: string;
   isEnabled?: boolean;
   clean?: boolean;
   containerFilePath: string;
-  repositoryId?: string;
-  gitReferenceId?: string;
+  repositoryId: string;
+  xcodeVersionId: string;
+  macOsVersionId: string;
+  actions: CiAction[];
+  branchStartCondition?: CiBranchStartCondition;
+  manualBranchStartCondition?: CiManualBranchStartCondition;
+}
+
+/**
+ * Parameters needed to update an existing workflow
+ */
+export interface UpdateWorkflowParams {
+  name?: string;
+  description?: string;
+  isEnabled?: boolean;
+  clean?: boolean;
+  containerFilePath?: string;
+  actions?: CiAction[];
+  branchStartCondition?: CiBranchStartCondition | null;
+  manualBranchStartCondition?: CiManualBranchStartCondition | null;
+  xcodeVersionId?: string;
+  macOsVersionId?: string;
 }
 
 /**
@@ -222,10 +335,13 @@ export interface CreateWorkflowRequest {
     type: 'ciWorkflows';
     attributes: {
       name: string;
-      description?: string;
+      description: string;
       isEnabled: boolean;
       clean: boolean;
       containerFilePath: string;
+      actions: CiAction[];
+      branchStartCondition?: CiBranchStartCondition | null;
+      manualBranchStartCondition?: CiManualBranchStartCondition | null;
     };
     relationships: {
       product: {
@@ -234,15 +350,55 @@ export interface CreateWorkflowRequest {
           id: string;
         };
       };
-      repository?: {
+      repository: {
         data: {
           type: 'scmRepositories';
           id: string;
         };
       };
-      sourceBranchOrTag?: {
+      xcodeVersion: {
         data: {
-          type: 'scmGitReferences';
+          type: 'ciXcodeVersions';
+          id: string;
+        };
+      };
+      macOsVersion: {
+        data: {
+          type: 'ciMacOsVersions';
+          id: string;
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Request body for updating a workflow
+ */
+export interface UpdateWorkflowRequest {
+  data: {
+    type: 'ciWorkflows';
+    id: string;
+    attributes?: {
+      name?: string;
+      description?: string;
+      isEnabled?: boolean;
+      clean?: boolean;
+      containerFilePath?: string;
+      actions?: CiAction[];
+      branchStartCondition?: CiBranchStartCondition | null;
+      manualBranchStartCondition?: CiManualBranchStartCondition | null;
+    };
+    relationships?: {
+      xcodeVersion?: {
+        data: {
+          type: 'ciXcodeVersions';
+          id: string;
+        };
+      };
+      macOsVersion?: {
+        data: {
+          type: 'ciMacOsVersions';
           id: string;
         };
       };

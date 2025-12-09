@@ -127,85 +127,24 @@ export function registerDiscoveryTools(
     },
   );
 
-  // Create a workflow for a product (with interactive prompts)
+  // Gather workflow creation requirements for a product
   server.registerTool(
     'create_workflow',
     {
       description:
-        'Create a new Xcode Cloud workflow for a product. If required details are missing, the tool will prompt for them so workflows can be added to projects that do not have any.',
+        'Gather all required information to create an Xcode Cloud workflow. This tool helps you collect the product, repository, Xcode version, macOS version, and other details needed. Use create_workflow_with_actions to actually create the workflow once you have all required IDs.',
       inputSchema: {
         productId: z
           .string()
           .optional()
           .describe(
-            'The product ID or resource URI (e.g., "xcode-cloud://product/abc123"). If omitted, the tool will return available products to choose from.',
-          ),
-        name: z
-          .string()
-          .optional()
-          .describe('Name for the workflow (e.g., "CI" or "Nightly Tests")'),
-        description: z
-          .string()
-          .optional()
-          .describe('Optional description for the workflow'),
-        containerFilePath: z
-          .string()
-          .optional()
-          .describe(
-            'Path to the .xcodeproj or .xcworkspace in the repo (e.g., "App/App.xcodeproj")',
-          ),
-        repositoryId: z
-          .string()
-          .optional()
-          .describe(
-            'SCM repository ID to associate with the workflow. Defaults to the product primary repository when present.',
-          ),
-        gitReferenceId: z
-          .string()
-          .optional()
-          .describe(
-            'Default git reference (branch or tag) ID for the workflow start condition',
-          ),
-        isEnabled: z
-          .boolean()
-          .optional()
-          .describe(
-            'Whether the workflow should start enabled (default: true)',
-          ),
-        clean: z
-          .boolean()
-          .optional()
-          .describe('Whether to run clean builds by default (default: false)'),
-        forceCreate: z
-          .boolean()
-          .optional()
-          .describe(
-            'Create even if workflows already exist for the product (default: false)',
+            'The product ID or resource URI. If omitted, returns available products.',
           ),
       },
     },
-    async ({
-      productId,
-      name,
-      description,
-      containerFilePath,
-      repositoryId,
-      gitReferenceId,
-      isEnabled,
-      clean,
-      forceCreate,
-    }: {
-      productId?: string;
-      name?: string;
-      description?: string;
-      containerFilePath?: string;
-      repositoryId?: string;
-      gitReferenceId?: string;
-      isEnabled?: boolean;
-      clean?: boolean;
-      forceCreate?: boolean;
-    }) => {
+    async ({ productId }: { productId?: string }) => {
       try {
+        // If no product, list available products
         if (!productId) {
           const products = await client.products.list();
 
@@ -222,10 +161,7 @@ export function registerDiscoveryTools(
                       name: p.attributes.name,
                       productType: p.attributes.productType,
                     })),
-                    exampleArguments:
-                      products.length > 0
-                        ? { productId: products[0].id }
-                        : { productId: 'your-product-id' },
+                    nextStep: 'Call create_workflow with productId parameter',
                   },
                   null,
                   2,
@@ -240,124 +176,77 @@ export function registerDiscoveryTools(
         const workflows =
           await client.workflows.listForProduct(parsedProductId);
 
-        if (workflows.length > 0 && !forceCreate) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    status: 'existing_workflows',
-                    message:
-                      'Workflows already exist for this product. Set forceCreate=true to create an additional workflow.',
-                    workflows: workflows.map((workflow) => ({
-                      id: workflow.id,
-                      name: workflow.attributes.name,
-                      isEnabled: workflow.attributes.isEnabled,
-                    })),
-                    exampleArguments: {
-                      productId: parsedProductId,
-                      forceCreate: true,
-                      name: `${product.attributes.name} CI`,
-                      containerFilePath: 'YourApp.xcodeproj',
-                    },
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-          };
-        }
-
+        // Get repository info
         const primaryRepositoryId =
           product.relationships?.primaryRepositories?.data?.[0]?.id;
-        const resolvedRepositoryId = repositoryId ?? primaryRepositoryId;
 
-        const missing: string[] = [];
-        if (!name) {
-          missing.push(
-            'Provide a workflow name (e.g., "CI" or "Nightly Tests").',
-          );
-        }
-        if (!containerFilePath) {
-          missing.push(
-            'Provide the containerFilePath to your .xcodeproj or .xcworkspace (e.g., "App/App.xcodeproj").',
-          );
-        }
-        if (!resolvedRepositoryId) {
-          missing.push(
-            'Provide repositoryId (scmRepositories) to associate with the workflow because no primary repository was found on the product.',
-          );
-        }
+        // Get available Xcode and macOS versions
+        const xcodeVersions = await client.xcodeVersions.list({ limit: 10 });
+        const macOsVersions = await client.macOsVersions.list({ limit: 10 });
 
-        if (missing.length > 0) {
-          return {
-            content: [
-              {
-                type: 'text',
-                text: JSON.stringify(
-                  {
-                    status: 'needs_input',
-                    message:
-                      'More information is required to create the workflow.',
-                    missing,
-                    defaults: {
-                      isEnabled: isEnabled ?? true,
-                      clean: clean ?? false,
-                      repositoryId: primaryRepositoryId,
-                    },
-                    exampleArguments: {
-                      productId: parsedProductId,
-                      name: name ?? `${product.attributes.name} CI`,
-                      containerFilePath:
-                        containerFilePath ?? 'App/App.xcodeproj',
-                      repositoryId: resolvedRepositoryId ?? 'scm-repository-id',
-                      description: description ?? 'CI workflow created via MCP',
-                      isEnabled: isEnabled ?? true,
-                      clean: clean ?? false,
-                      forceCreate: forceCreate ?? true,
-                    },
-                  },
-                  null,
-                  2,
-                ),
-              },
-            ],
-          };
-        }
-
-        const workflowName = name as string;
-        const workflowContainerFilePath = containerFilePath as string;
-
-        const created = await client.workflows.create(parsedProductId, {
-          name: workflowName,
-          description,
-          containerFilePath: workflowContainerFilePath,
-          repositoryId: resolvedRepositoryId,
-          gitReferenceId,
-          isEnabled,
-          clean,
-        });
-
+        // Build the response with all the info needed for create_workflow_with_actions
         return {
           content: [
             {
               type: 'text',
               text: JSON.stringify(
                 {
-                  status: 'created',
-                  message: 'Workflow created successfully.',
-                  workflow: {
-                    id: created.id,
-                    name: created.attributes.name,
-                    containerFilePath: created.attributes.containerFilePath,
-                    isEnabled: created.attributes.isEnabled,
-                    clean: created.attributes.clean,
-                  },
+                  status: 'ready',
+                  message:
+                    'Use create_workflow_with_actions with the following IDs to create a workflow.',
                   product: {
                     id: product.id,
                     name: product.attributes.name,
+                  },
+                  existingWorkflows: workflows.map((w) => ({
+                    id: w.id,
+                    name: w.attributes.name,
+                    isEnabled: w.attributes.isEnabled,
+                  })),
+                  repositoryId: primaryRepositoryId ?? 'Use get_repository to find this',
+                  availableXcodeVersions: xcodeVersions.map((v) => ({
+                    id: v.id,
+                    name: v.attributes.name,
+                    version: v.attributes.version,
+                  })),
+                  availableMacOsVersions: macOsVersions.map((v) => ({
+                    id: v.id,
+                    name: v.attributes.name,
+                    version: v.attributes.version,
+                  })),
+                  exampleUsage: {
+                    tool: 'create_workflow_with_actions',
+                    arguments: {
+                      productId: parsedProductId,
+                      repositoryId: primaryRepositoryId ?? 'YOUR_REPOSITORY_ID',
+                      xcodeVersionId:
+                        xcodeVersions.length > 0
+                          ? xcodeVersions[0].id
+                          : 'YOUR_XCODE_VERSION_ID',
+                      macOsVersionId:
+                        macOsVersions.length > 0
+                          ? macOsVersions[0].id
+                          : 'YOUR_MACOS_VERSION_ID',
+                      name: `${product.attributes.name} CI`,
+                      description: 'CI workflow with tests',
+                      containerFilePath: 'YourApp.xcodeproj',
+                      actions: [
+                        {
+                          name: 'Build - iOS',
+                          actionType: 'BUILD',
+                          platform: 'IOS',
+                          scheme: 'YourScheme',
+                          destination: 'ANY_IOS_SIMULATOR',
+                        },
+                        {
+                          name: 'Test - iOS',
+                          actionType: 'TEST',
+                          platform: 'IOS',
+                          scheme: 'YourScheme',
+                          destination: 'ANY_IOS_SIMULATOR',
+                        },
+                      ],
+                    },
                   },
                 },
                 null,
@@ -371,7 +260,7 @@ export function registerDiscoveryTools(
           content: [
             {
               type: 'text',
-              text: `Error creating workflow: ${error instanceof Error ? error.message : String(error)}`,
+              text: `Error gathering workflow info: ${error instanceof Error ? error.message : String(error)}`,
             },
           ],
           isError: true,

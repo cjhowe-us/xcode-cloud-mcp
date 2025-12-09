@@ -68,9 +68,20 @@ export class BaseAPIClient {
   }
 
   /**
+   * Make a PATCH request to the API
+   */
+  protected async patch<T>(
+    endpoint: string,
+    body: unknown,
+  ): Promise<APIResponse<T>> {
+    const url = this.buildUrl(endpoint);
+    return this.request<T>('PATCH', url, body);
+  }
+
+  /**
    * Make a DELETE request to the API
    */
-  protected async delete(endpoint: string): Promise<void> {
+  protected async deleteRequest(endpoint: string): Promise<void> {
     const url = this.buildUrl(endpoint);
     await this.request('DELETE', url);
   }

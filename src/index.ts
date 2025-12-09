@@ -11,6 +11,7 @@ import { registerBuildTools } from './tools/builds.js';
 import { registerStatusTools } from './tools/status.js';
 import { registerResultsTools } from './tools/results.js';
 import { registerTestTools } from './tools/tests.js';
+import { registerWorkflowManagementTools } from './tools/workflow-management.js';
 
 const server = new McpServer({
   name: 'Xcode Cloud MCP',
@@ -29,6 +30,7 @@ async function main() {
     registerStatusTools(server, client);
     registerResultsTools(server, client);
     registerTestTools(server, client);
+    registerWorkflowManagementTools(server, client);
 
     // Connect to stdio transport
     const transport = new StdioServerTransport();

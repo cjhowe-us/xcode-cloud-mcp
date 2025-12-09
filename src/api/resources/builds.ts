@@ -50,7 +50,7 @@ export class BuildsClient extends BaseAPIClient {
    * Cancel a running build
    */
   async cancel(buildRunId: string): Promise<void> {
-    await this.delete(`/v1/ciBuildRuns/${buildRunId}`);
+    await this.deleteRequest(`/v1/ciBuildRuns/${buildRunId}`);
   }
 
   /**

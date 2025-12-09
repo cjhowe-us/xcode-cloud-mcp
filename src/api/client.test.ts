@@ -131,14 +131,14 @@ describe('AppStoreConnectClient', () => {
       expect(workflow.id).toBe('workflow-123');
     });
 
-    it('should create workflow with defaults', async () => {
+    it('should create workflow with actions', async () => {
       fetchSpy.mockResolvedValue(
         Response.json({
           data: {
             id: 'workflow-999',
             attributes: {
               name: 'New Workflow',
-              description: 'desc',
+              description: 'CI workflow',
               isEnabled: true,
               clean: false,
               isLockedForEditing: false,
@@ -151,28 +151,39 @@ describe('AppStoreConnectClient', () => {
 
       const workflow = await client.workflows.create('product-123', {
         name: 'New Workflow',
-        description: 'desc',
+        description: 'CI workflow',
         containerFilePath: 'App.xcodeproj',
+        repositoryId: 'repo-1',
+        xcodeVersionId: 'xcode-16',
+        macOsVersionId: 'macos-15',
+        actions: [
+          { name: 'Build', actionType: 'BUILD', platform: 'IOS' },
+          { name: 'Test', actionType: 'TEST', platform: 'IOS' },
+        ],
       });
 
       const request = fetchSpy.mock.calls[0] as [string, RequestInit];
       expect(request[0]).toContain('/v1/ciWorkflows');
       const body = JSON.parse(request[1].body as string);
       expect(body.data.relationships.product.data.id).toBe('product-123');
+      expect(body.data.relationships.repository.data.id).toBe('repo-1');
+      expect(body.data.relationships.xcodeVersion.data.id).toBe('xcode-16');
+      expect(body.data.relationships.macOsVersion.data.id).toBe('macos-15');
       expect(body.data.attributes.isEnabled).toBe(true);
       expect(body.data.attributes.clean).toBe(false);
+      expect(body.data.attributes.actions).toHaveLength(2);
       expect(workflow.id).toBe('workflow-999');
     });
 
-    it('should include optional relationships when provided', async () => {
+    it('should update workflow with actions', async () => {
       fetchSpy.mockResolvedValue(
         Response.json({
           data: {
             id: 'workflow-abc',
             attributes: {
-              name: 'Custom Workflow',
-              isEnabled: false,
-              clean: true,
+              name: 'Updated Workflow',
+              isEnabled: true,
+              clean: false,
               isLockedForEditing: false,
               containerFilePath: 'App.xcworkspace',
               lastModifiedDate: '2025-01-03',
@@ -181,23 +192,33 @@ describe('AppStoreConnectClient', () => {
         }),
       );
 
-      await client.workflows.create('product-123', {
-        name: 'Custom Workflow',
-        containerFilePath: 'App.xcworkspace',
-        repositoryId: 'repo-1',
-        gitReferenceId: 'git-ref-1',
-        isEnabled: false,
-        clean: true,
+      await client.workflows.update('workflow-abc', {
+        name: 'Updated Workflow',
+        actions: [
+          { name: 'Build', actionType: 'BUILD', platform: 'IOS' },
+          { name: 'Test', actionType: 'TEST', platform: 'IOS' },
+          { name: 'Analyze', actionType: 'ANALYZE', platform: 'IOS' },
+        ],
       });
 
-      const [, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      const [url, options] = fetchSpy.mock.calls[0] as [string, RequestInit];
+      expect(url).toContain('/v1/ciWorkflows/workflow-abc');
+      expect(options.method).toBe('PATCH');
       const body = JSON.parse(options.body as string);
-      expect(body.data.relationships.repository.data.id).toBe('repo-1');
-      expect(body.data.relationships.sourceBranchOrTag.data.id).toBe(
-        'git-ref-1',
-      );
-      expect(body.data.attributes.isEnabled).toBe(false);
-      expect(body.data.attributes.clean).toBe(true);
+      expect(body.data.id).toBe('workflow-abc');
+      expect(body.data.attributes.name).toBe('Updated Workflow');
+      expect(body.data.attributes.actions).toHaveLength(3);
+    });
+
+    it('should delete workflow', async () => {
+      fetchSpy.mockResolvedValue(Response.json(null));
+
+      await client.workflows.delete('workflow-123');
+
+      const url = fetchSpy.mock.calls[0][0] as string;
+      expect(url).toContain('/v1/ciWorkflows/workflow-123');
+      const options = fetchSpy.mock.calls[0][1] as RequestInit;
+      expect(options.method).toBe('DELETE');
     });
   });
 

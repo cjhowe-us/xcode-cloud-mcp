@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { registerDiscoveryTools } from './discovery.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AppStoreConnectClient } from '../api/client.js';
-import type { CiProduct, CiWorkflow } from '../api/types.js';
+import type { CiProduct, CiWorkflow, CiXcodeVersion, CiMacOsVersion } from '../api/types.js';
 
 describe('create_workflow tool', () => {
   type ToolHandler = (args: Record<string, unknown>) => Promise<{
@@ -25,25 +25,34 @@ describe('create_workflow tool', () => {
     },
   };
 
-  const createdWorkflow: CiWorkflow = {
-    id: 'wf-1',
+  const existingWorkflow: CiWorkflow = {
+    id: 'wf-existing',
     type: 'ciWorkflows',
     attributes: {
-      name: 'Demo CI',
-      description: 'CI workflow created via MCP',
+      name: 'Existing CI',
       isEnabled: true,
       isLockedForEditing: false,
       clean: false,
       containerFilePath: 'App.xcodeproj',
-      lastModifiedDate: '2025-01-02',
+      lastModifiedDate: '2025-01-01',
     },
-    relationships: {
-      product: {
-        data: { type: 'ciProducts', id: 'prod-1' },
-      },
-      repository: {
-        data: { type: 'scmRepositories', id: 'repo-1' },
-      },
+  };
+
+  const xcodeVersion: CiXcodeVersion = {
+    id: 'xcode-16',
+    type: 'ciXcodeVersions',
+    attributes: {
+      name: 'Xcode 16',
+      version: '16.0',
+    },
+  };
+
+  const macOsVersion: CiMacOsVersion = {
+    id: 'macos-15',
+    type: 'ciMacOsVersions',
+    attributes: {
+      name: 'macOS 15',
+      version: '15.0',
     },
   };
 
@@ -55,7 +64,12 @@ describe('create_workflow tool', () => {
     };
     workflows: {
       listForProduct: ReturnType<typeof mock>;
-      create: ReturnType<typeof mock>;
+    };
+    xcodeVersions: {
+      list: ReturnType<typeof mock>;
+    };
+    macOsVersions: {
+      list: ReturnType<typeof mock>;
     };
   };
 
@@ -71,8 +85,13 @@ describe('create_workflow tool', () => {
         getById: mock(async () => product),
       },
       workflows: {
-        listForProduct: mock(async () => []),
-        create: mock(async () => createdWorkflow),
+        listForProduct: mock(async () => [existingWorkflow]),
+      },
+      xcodeVersions: {
+        list: mock(async () => [xcodeVersion]),
+      },
+      macOsVersions: {
+        list: mock(async () => [macOsVersion]),
       },
     };
 
@@ -99,32 +118,23 @@ describe('create_workflow tool', () => {
     expect(payload.availableProducts[0].id).toBe('prod-1');
   });
 
-  it('prompts for missing workflow details', async () => {
+  it('returns ready status with all required info when productId is provided', async () => {
     const result = await handler({ productId: 'prod-1' });
 
     const payload = JSON.parse(result.content[0].text);
-    expect(payload.status).toBe('needs_input');
-    expect(payload.missing.length).toBeGreaterThan(0);
-    expect(clientMocks.workflows.create).not.toHaveBeenCalled();
+    expect(payload.status).toBe('ready');
+    expect(payload.product.id).toBe('prod-1');
+    expect(payload.repositoryId).toBe('repo-1');
+    expect(payload.availableXcodeVersions).toHaveLength(1);
+    expect(payload.availableMacOsVersions).toHaveLength(1);
+    expect(payload.exampleUsage.tool).toBe('create_workflow_with_actions');
   });
 
-  it('creates workflow when all required fields are provided', async () => {
-    const result = await handler({
-      productId: 'prod-1',
-      name: 'Demo CI',
-      containerFilePath: 'App.xcodeproj',
-    });
+  it('includes existing workflows in the response', async () => {
+    const result = await handler({ productId: 'prod-1' });
 
     const payload = JSON.parse(result.content[0].text);
-
-    expect(payload.status).toBe('created');
-    expect(payload.workflow.id).toBe('wf-1');
-    expect(clientMocks.workflows.create).toHaveBeenCalledWith(
-      'prod-1',
-      expect.objectContaining({
-        name: 'Demo CI',
-        containerFilePath: 'App.xcodeproj',
-      }),
-    );
+    expect(payload.existingWorkflows).toHaveLength(1);
+    expect(payload.existingWorkflows[0].name).toBe('Existing CI');
   });
 });
