@@ -4,16 +4,12 @@ import { describe, it } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-const POLL_INTERVAL_MS = 5000; // Poll every 5 seconds
+const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds (server-side)
 const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
 interface TextContent {
   type: 'text';
   text: string;
-}
-
-async function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 describe('local Xcode Cloud MCP server', () => {
@@ -141,14 +137,26 @@ describe('local Xcode Cloud MCP server', () => {
           process.exit(1);
         }
 
-        // Step 3: Trigger build
-        console.log('🔨 Step 3: Triggering build via MCP...');
-        const startBuildResult = await client.callTool({
-          name: 'start_build',
-          arguments: {
-            workflowId: workflow.id,
+        // Step 3: Trigger build and wait for completion
+        console.log(
+          '🔨 Step 3: Triggering build and waiting for completion...',
+        );
+        console.log(
+          '   (Server polls internally - this may take several minutes)\n',
+        );
+
+        const startBuildResult = await client.callTool(
+          {
+            name: 'start_build_and_wait',
+            arguments: {
+              workflowId: workflow.id,
+              pollIntervalMs: POLL_INTERVAL_MS,
+              timeoutMs: MAX_WAIT_TIME_MS,
+            },
           },
-        });
+          undefined, // use default result schema
+          { timeout: MAX_WAIT_TIME_MS + 60_000 }, // client timeout > server timeout
+        );
 
         if (
           !startBuildResult.content ||
@@ -162,77 +170,29 @@ describe('local Xcode Cloud MCP server', () => {
           startBuildResult.content as TextContent[]
         )[0];
         if (startBuildContent.type !== 'text') {
-          console.error('❌ Unexpected content type from start_build');
+          console.error('❌ Unexpected content type from start_build_and_wait');
           process.exit(1);
         }
 
-        const buildData = JSON.parse(startBuildContent.text);
-        buildRunId = buildData.id;
-        const buildNumber = buildData.number;
+        const buildRun = JSON.parse(startBuildContent.text);
+        buildRunId = buildRun.id;
 
-        console.log(`   ✅ Build #${buildNumber} started!`);
-        console.log(`   Build ID: ${buildRunId}`);
-        console.log(`   Status: ${buildData.executionProgress}\n`);
-
-        // Step 4: Monitor build progress
-        console.log('⏳ Step 4: Monitoring build progress via MCP...');
-        console.log('   (This may take several minutes)\n');
-
-        const startTime = Date.now();
-        let iterations = 0;
-        let buildRun = buildData;
-
-        while (true) {
-          iterations++;
-          const buildRunResult = await client.callTool({
-            name: 'get_build_run',
-            arguments: {
-              buildRunId: buildRunId,
-            },
-          });
-
-          if (
-            !buildRunResult.content ||
-            (buildRunResult.content as TextContent[]).length === 0
-          ) {
-            console.error('❌ No build run result returned from MCP');
-            process.exit(1);
-          }
-
-          const buildRunContent = (buildRunResult.content as TextContent[])[0];
-          if (buildRunContent.type !== 'text') {
-            console.error('❌ Unexpected content type from get_build_run');
-            process.exit(1);
-          }
-
-          buildRun = JSON.parse(buildRunContent.text);
-
-          const elapsed = Math.floor((Date.now() - startTime) / 1000);
-          const progress = buildRun.executionProgress;
-          const status = buildRun.completionStatus;
-
-          console.log(
-            `   [${elapsed}s] Progress: ${progress}${status ? ` - ${status}` : ''} (check #${iterations})`,
-          );
-
-          if (progress === 'COMPLETE') {
-            console.log();
-            break;
-          }
-
-          if (Date.now() - startTime > MAX_WAIT_TIME_MS) {
-            console.log(
-              '\n⚠️  Build did not complete within 10 minutes. Stopping monitor.',
-            );
-            console.log(`   Current status: ${progress}`);
-            process.exit(1);
-          }
-
-          await sleep(POLL_INTERVAL_MS);
+        if (buildRun.timeoutExceeded) {
+          console.log('⚠️  Build did not complete within timeout period.');
+          console.log(`   Current status: ${buildRun.executionProgress}`);
+          process.exit(1);
         }
 
-        // Step 5: Get build results
-        console.log('📊 Step 5: Retrieving build results via MCP...');
+        console.log(`   ✅ Build #${buildRun.number} completed!`);
+        console.log(`   Build ID: ${buildRunId}`);
+        console.log(`   Status: ${buildRun.completionStatus}`);
+        console.log(
+          `   Duration: ${Math.floor(buildRun.totalDurationMs / 1000)}s`,
+        );
+        console.log(`   Server poll count: ${buildRun.pollCount}\n`);
+
+        // Step 4: Get build results
+        console.log('📊 Step 4: Retrieving build results...');
         console.log(`   Final Status: ${buildRun.completionStatus}`);
         console.log(`   Started: ${buildRun.startedDate}`);
         console.log(`   Finished: ${buildRun.finishedDate}`);
@@ -250,8 +210,8 @@ describe('local Xcode Cloud MCP server', () => {
         }
         console.log();
 
-        // Step 6: Get build actions
-        console.log('🔍 Step 6: Getting build actions via MCP...');
+        // Step 5: Get build actions
+        console.log('🔍 Step 5: Getting build actions...');
         const actionsResult = await client.callTool({
           name: 'get_build_actions',
           arguments: {
@@ -301,8 +261,8 @@ describe('local Xcode Cloud MCP server', () => {
         );
         console.log();
 
-        // Step 7: Get test results
-        console.log('🧪 Step 7: Checking for test results via MCP...');
+        // Step 6: Get test results
+        console.log('🧪 Step 6: Checking for test results...');
         try {
           const testResultsResult = await client.callTool({
             name: 'get_test_results',
@@ -337,13 +297,14 @@ describe('local Xcode Cloud MCP server', () => {
         console.log(
           `  • Build #${buildRun.number} ${buildRun.completionStatus}`,
         );
+        console.log(
+          `  • Server-side polling saved ${buildRun.pollCount} client tool calls`,
+        );
         console.log(`  • All MCP tools verified with real Xcode Cloud build`);
         console.log(
-          `  • Tools tested: list_products, list_workflows, start_build,`,
+          `  • Tools tested: list_products, list_workflows, start_build_and_wait,`,
         );
-        console.log(
-          `                  get_build_run, get_build_actions, get_test_results`,
-        );
+        console.log(`                  get_build_actions, get_test_results`);
 
         if (buildRun.completionStatus !== 'SUCCEEDED') {
           console.log(

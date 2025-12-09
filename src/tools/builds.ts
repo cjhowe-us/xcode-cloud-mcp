@@ -115,4 +115,154 @@ export function registerBuildTools(
       }
     },
   );
+
+  // Start a build and wait for completion
+  server.registerTool(
+    'start_build_and_wait',
+    {
+      description:
+        'Start an Xcode Cloud build and wait for it to complete. The server polls the build status internally, eliminating the need for repeated client tool calls. Returns the final build status when complete.',
+      inputSchema: {
+        workflowId: z
+          .string()
+          .describe(
+            'The workflow ID or resource URI (e.g., "xcode-cloud://workflow/abc123" or just "abc123")',
+          ),
+        gitReferenceId: z
+          .string()
+          .optional()
+          .describe(
+            "Optional: The ID of the git reference (branch/tag) to build. If not specified, uses the workflow's default branch.",
+          ),
+        pollIntervalMs: z
+          .number()
+          .optional()
+          .describe(
+            'Polling interval in milliseconds (default: 30000 = 30 seconds)',
+          ),
+        timeoutMs: z
+          .number()
+          .optional()
+          .describe(
+            'Maximum time to wait in milliseconds (default: 3600000 = 1 hour)',
+          ),
+      },
+    },
+    async ({
+      workflowId,
+      gitReferenceId,
+      pollIntervalMs = 30000,
+      timeoutMs = 3600000,
+    }: {
+      workflowId: string;
+      gitReferenceId?: string;
+      pollIntervalMs?: number;
+      timeoutMs?: number;
+    }) => {
+      const sleep = (ms: number) =>
+        new Promise((resolve) => setTimeout(resolve, ms));
+
+      try {
+        // Start the build
+        const parsedWorkflowId = parseWorkflowId(workflowId);
+        const buildRun = await client.builds.start(
+          parsedWorkflowId,
+          gitReferenceId,
+        );
+
+        const buildRunId = buildRun.id;
+        const startTime = Date.now();
+        let pollCount = 0;
+        let currentBuild = buildRun;
+        let consecutiveErrors = 0;
+        const maxConsecutiveErrors = 3;
+
+        // Poll until complete or timeout
+        while (currentBuild.attributes.executionProgress !== 'COMPLETE') {
+          // Check timeout
+          if (Date.now() - startTime > timeoutMs) {
+            const formatted = {
+              id: currentBuild.id,
+              number: currentBuild.attributes.number,
+              executionProgress: currentBuild.attributes.executionProgress,
+              completionStatus: currentBuild.attributes.completionStatus,
+              createdDate: currentBuild.attributes.createdDate,
+              startedDate: currentBuild.attributes.startedDate,
+              finishedDate: currentBuild.attributes.finishedDate,
+              sourceCommit: currentBuild.attributes.sourceCommit,
+              issueCounts: currentBuild.attributes.issueCounts,
+              timeoutExceeded: true,
+              totalDurationMs: Date.now() - startTime,
+              pollCount,
+            };
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: JSON.stringify(formatted, null, 2),
+                },
+              ],
+              isError: true,
+            };
+          }
+
+          // Wait before polling
+          await sleep(pollIntervalMs);
+          pollCount++;
+
+          // Poll build status with retry on error
+          try {
+            currentBuild = await client.builds.getById(buildRunId);
+            consecutiveErrors = 0;
+          } catch (pollError) {
+            consecutiveErrors++;
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              throw new Error(
+                `Failed to poll build status after ${maxConsecutiveErrors} consecutive errors: ${pollError instanceof Error ? pollError.message : String(pollError)}`,
+              );
+            }
+            // Continue to retry on next poll interval
+          }
+        }
+
+        // Build complete - return final status
+        const formatted = {
+          id: currentBuild.id,
+          number: currentBuild.attributes.number,
+          executionProgress: currentBuild.attributes.executionProgress,
+          completionStatus: currentBuild.attributes.completionStatus,
+          createdDate: currentBuild.attributes.createdDate,
+          startedDate: currentBuild.attributes.startedDate,
+          finishedDate: currentBuild.attributes.finishedDate,
+          sourceCommit: currentBuild.attributes.sourceCommit,
+          destinationCommit: currentBuild.attributes.destinationCommit,
+          isPullRequestBuild: currentBuild.attributes.isPullRequestBuild,
+          issueCounts: currentBuild.attributes.issueCounts,
+          startReason: currentBuild.attributes.startReason,
+          totalDurationMs: Date.now() - startTime,
+          pollCount,
+        };
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(formatted, null, 2),
+            },
+          ],
+        };
+      } catch (error) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Error in start_build_and_wait: ${error instanceof Error ? error.message : String(error)}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+    },
+  );
 }
