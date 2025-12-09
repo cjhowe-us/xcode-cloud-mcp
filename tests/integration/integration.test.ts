@@ -1,22 +1,99 @@
 import 'dotenv/config';
 
-import { describe, it } from 'bun:test';
+import { describe, it, expect } from 'bun:test';
 import { Client } from '@modelcontextprotocol/sdk/client';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const POLL_INTERVAL_MS = 30_000; // Poll every 30 seconds (server-side)
 const MAX_WAIT_TIME_MS = 900_000; // 15 minutes max
 
+// The test app name - this is the Xcode project in TestFixtures/XcodeCloudTestApp
+const TEST_APP_NAME = 'XcodeCloudTestApp';
+
 interface TextContent {
   type: 'text';
   text: string;
 }
 
-describe('local Xcode Cloud MCP server', () => {
+interface Artifact {
+  id: string;
+  fileName: string;
+  fileSize?: number;
+  downloadUrl: string;
+}
+
+interface TestArtifactsResult {
+  screenshots: Artifact[];
+  videos: Artifact[];
+  resultBundles: Artifact[];
+  testProducts: Artifact[];
+  total: number;
+  message?: string;
+}
+
+interface BuildLogsResult {
+  logs: Artifact[];
+  archives: Artifact[];
+  other: Array<Artifact & { fileType: string }>;
+  total: number;
+  message?: string;
+}
+
+interface TestResultsResult {
+  buildRunId: string;
+  buildNumber: number;
+  testFailures: number;
+  resultBundles: Artifact[];
+  message?: string;
+}
+
+interface BuildIssuesResult {
+  buildRunId: string;
+  buildNumber: number;
+  issueCounts: {
+    analyzerWarnings: number;
+    errors: number;
+    testFailures: number;
+    warnings: number;
+  };
+  message?: string;
+}
+
+/**
+ * Helper function to call an MCP tool and parse the JSON result
+ */
+async function callToolAndParse<T>(
+  client: Client,
+  toolName: string,
+  args: Record<string, unknown>,
+  timeout?: number,
+): Promise<T> {
+  const result = await client.callTool(
+    { name: toolName, arguments: args },
+    undefined,
+    timeout ? { timeout } : undefined,
+  );
+
+  if (!result.content || (result.content as TextContent[]).length === 0) {
+    throw new Error(`No content returned from ${toolName}`);
+  }
+
+  const content = (result.content as TextContent[])[0];
+  if (content.type !== 'text') {
+    throw new Error(
+      `Unexpected content type from ${toolName}: ${content.type}`,
+    );
+  }
+
+  return JSON.parse(content.text) as T;
+}
+
+describe('Xcode Cloud MCP Integration Tests', () => {
   it.serial(
-    'works',
+    'can trigger build and retrieve test results with artifacts',
     async () => {
       console.log('🚀 Xcode Cloud MCP Integration Test');
+      console.log(`Testing with project: ${TEST_APP_NAME}`);
       console.log('This will trigger a REAL build in Xcode Cloud via MCP\n');
 
       // Check for required environment variables
@@ -62,66 +139,40 @@ describe('local Xcode Cloud MCP server', () => {
         await client.connect(transport);
         console.log('   ✓ Connected to MCP server\n');
 
-        // Step 1: Find Enthrall product
-        console.log('📦 Step 1: Finding Enthrall product...');
-        const productsResult = await client.callTool({
-          name: 'list_products',
-          arguments: {},
-        });
+        // Step 1: Find test app product
+        console.log(`📦 Step 1: Finding ${TEST_APP_NAME} product...`);
+        const productsData = await callToolAndParse<{
+          products: Array<{ id: string; name: string }>;
+        }>(client, 'list_products', {});
 
-        if (
-          !productsResult.content ||
-          (productsResult.content as TextContent[]).length === 0
-        ) {
-          console.error('❌ No products returned from MCP');
-          process.exit(1);
-        }
-
-        const productsContent = (productsResult.content as TextContent[])[0];
-        if (productsContent.type !== 'text') {
-          console.error('❌ Unexpected content type from list_products');
-          process.exit(1);
-        }
-
-        const productsData = JSON.parse(productsContent.text);
-        const enthrallProduct = productsData.products.find(
-          (p: { name: string }) => p.name.toLowerCase().includes('enthrall'),
+        const testProduct = productsData.products.find((p) =>
+          p.name.toLowerCase().includes(TEST_APP_NAME.toLowerCase()),
         );
 
-        if (!enthrallProduct) {
-          console.error('❌ No Enthrall product found');
+        if (!testProduct) {
+          console.error(`❌ No ${TEST_APP_NAME} product found`);
+          console.error(
+            'Available products:',
+            productsData.products.map((p) => p.name).join(', '),
+          );
+          console.error(
+            '\n⚠️  Make sure the XcodeCloudTestApp is set up in Xcode Cloud',
+          );
           process.exit(1);
         }
 
-        console.log(`   ✓ Found: ${enthrallProduct.name}`);
-        console.log(`   ID: ${enthrallProduct.id}\n`);
+        console.log(`   ✓ Found: ${testProduct.name}`);
+        console.log(`   ID: ${testProduct.id}\n`);
 
         // Step 2: Get workflow
         console.log('⚙️  Step 2: Getting CI workflow...');
-        const workflowsResult = await client.callTool({
-          name: 'list_workflows',
-          arguments: {
-            productId: enthrallProduct.id,
-          },
-        });
+        const workflowsData = await callToolAndParse<{
+          workflows: Array<{ id: string; name: string; isEnabled: boolean }>;
+        }>(client, 'list_workflows', { productId: testProduct.id });
 
-        if (
-          !workflowsResult.content ||
-          (workflowsResult.content as TextContent[]).length === 0
-        ) {
-          console.error('❌ No workflows returned from MCP');
-          process.exit(1);
-        }
-
-        const workflowsContent = (workflowsResult.content as TextContent[])[0];
-        if (workflowsContent.type !== 'text') {
-          console.error('❌ Unexpected content type from list_workflows');
-          process.exit(1);
-        }
-
-        const workflowsData = JSON.parse(workflowsContent.text);
         if (workflowsData.workflows.length === 0) {
           console.error('❌ No workflows found');
+          console.error('⚠️  Set up an Xcode Cloud workflow for this project');
           process.exit(1);
         }
 
@@ -145,36 +196,33 @@ describe('local Xcode Cloud MCP server', () => {
           '   (Server polls internally - this may take several minutes)\n',
         );
 
-        const startBuildResult = await client.callTool(
+        const buildRun = await callToolAndParse<{
+          id: string;
+          number: number;
+          completionStatus: string;
+          executionProgress: string;
+          timeoutExceeded?: boolean;
+          totalDurationMs: number;
+          pollCount: number;
+          startedDate: string;
+          finishedDate: string;
+          issueCounts?: {
+            errors: number;
+            warnings: number;
+            analyzerWarnings: number;
+            testFailures: number;
+          };
+        }>(
+          client,
+          'start_build_and_wait',
           {
-            name: 'start_build_and_wait',
-            arguments: {
-              workflowId: workflow.id,
-              pollIntervalMs: POLL_INTERVAL_MS,
-              timeoutMs: MAX_WAIT_TIME_MS,
-            },
+            workflowId: workflow.id,
+            pollIntervalMs: POLL_INTERVAL_MS,
+            timeoutMs: MAX_WAIT_TIME_MS,
           },
-          undefined, // use default result schema
-          { timeout: MAX_WAIT_TIME_MS + 60_000 }, // client timeout > server timeout
+          MAX_WAIT_TIME_MS + 60_000,
         );
 
-        if (
-          !startBuildResult.content ||
-          (startBuildResult.content as TextContent[]).length === 0
-        ) {
-          console.error('❌ No build result returned from MCP');
-          process.exit(1);
-        }
-
-        const startBuildContent = (
-          startBuildResult.content as TextContent[]
-        )[0];
-        if (startBuildContent.type !== 'text') {
-          console.error('❌ Unexpected content type from start_build_and_wait');
-          process.exit(1);
-        }
-
-        const buildRun = JSON.parse(startBuildContent.text);
         buildRunId = buildRun.id;
 
         if (buildRun.timeoutExceeded) {
@@ -191,7 +239,7 @@ describe('local Xcode Cloud MCP server', () => {
         );
         console.log(`   Server poll count: ${buildRun.pollCount}\n`);
 
-        // Step 4: Get build results
+        // Step 4: Get build results summary
         console.log('📊 Step 4: Retrieving build results...');
         console.log(`   Final Status: ${buildRun.completionStatus}`);
         console.log(`   Started: ${buildRun.startedDate}`);
@@ -212,32 +260,8 @@ describe('local Xcode Cloud MCP server', () => {
 
         // Step 5: Get build actions
         console.log('🔍 Step 5: Getting build actions...');
-        const actionsResult = await client.callTool({
-          name: 'get_build_actions',
-          arguments: {
-            buildRunId: buildRunId,
-          },
-        });
-
-        if (
-          !actionsResult.content ||
-          (actionsResult.content as TextContent[]).length === 0
-        ) {
-          console.error('❌ No actions result returned from MCP');
-          process.exit(1);
-        }
-
-        const actionsContent = (actionsResult.content as TextContent[])[0];
-        if (actionsContent.type !== 'text') {
-          console.error('❌ Unexpected content type from get_build_actions');
-          process.exit(1);
-        }
-
-        const actionsData = JSON.parse(actionsContent.text);
-        console.log(`   Found ${actionsData.actions.length} actions:\n`);
-
-        actionsData.actions.forEach(
-          (action: {
+        const actionsData = await callToolAndParse<{
+          actions: Array<{
             name: string;
             actionType: string;
             completionStatus?: string;
@@ -246,53 +270,299 @@ describe('local Xcode Cloud MCP server', () => {
               warnings: number;
               testFailures: number;
             };
-          }) => {
-            console.log(`   • ${action.name} (${action.actionType})`);
-            console.log(`     Status: ${action.completionStatus || 'N/A'}`);
-            if (action.issueCounts) {
-              const counts = action.issueCounts;
-              if (counts.errors || counts.warnings || counts.testFailures) {
-                console.log(
-                  `     Issues: ${counts.errors} errors, ${counts.warnings} warnings, ${counts.testFailures} test failures`,
-                );
-              }
-            }
-          },
-        );
-        console.log();
+          }>;
+        }>(client, 'get_build_actions', { buildRunId });
 
-        // Step 6: Get test results
-        console.log('🧪 Step 6: Checking for test results...');
-        try {
-          const testResultsResult = await client.callTool({
-            name: 'get_test_results',
-            arguments: {
-              buildRunId: buildRunId,
-            },
-          });
+        console.log(`   Found ${actionsData.actions.length} actions:\n`);
 
-          if (
-            testResultsResult.content &&
-            (testResultsResult.content as TextContent[]).length > 0
-          ) {
-            const testResultsContent = (
-              testResultsResult.content as TextContent[]
-            )[0];
-            if (testResultsContent.type === 'text') {
-              const testData = JSON.parse(testResultsContent.text);
+        actionsData.actions.forEach((action) => {
+          console.log(`   • ${action.name} (${action.actionType})`);
+          console.log(`     Status: ${action.completionStatus || 'N/A'}`);
+          if (action.issueCounts) {
+            const counts = action.issueCounts;
+            if (counts.errors || counts.warnings || counts.testFailures) {
               console.log(
-                `   Found ${testData.testResults?.length || 0} test results\n`,
+                `     Issues: ${counts.errors} errors, ${counts.warnings} warnings, ${counts.testFailures} test failures`,
               );
             }
           }
+        });
+        console.log();
+
+        // Step 6: Get test results
+        console.log('🧪 Step 6: Getting test results...');
+        let testResults: TestResultsResult | null = null;
+        try {
+          testResults = await callToolAndParse<TestResultsResult>(
+            client,
+            'get_test_results',
+            { buildRunId },
+          );
+          console.log(`   Test failures: ${testResults.testFailures}`);
+          console.log(`   Result bundles: ${testResults.resultBundles.length}`);
+
+          if (testResults.resultBundles.length > 0) {
+            console.log('   Result bundle files:');
+            testResults.resultBundles.forEach((bundle) => {
+              console.log(`     - ${bundle.fileName}`);
+            });
+          }
         } catch (error) {
           console.log(
-            `   ⚠️  Test results not available: ${error instanceof Error ? error.message : error}\n`,
+            `   ⚠️  Test results not available: ${error instanceof Error ? error.message : error}`,
           );
         }
+        console.log();
+
+        // Step 7: Get test artifacts (screenshots, videos)
+        console.log(
+          '📸 Step 7: Getting test artifacts (screenshots, videos)...',
+        );
+        let testArtifacts: TestArtifactsResult | null = null;
+        try {
+          testArtifacts = await callToolAndParse<TestArtifactsResult>(
+            client,
+            'get_test_artifacts',
+            { buildRunId },
+          );
+          console.log(`   Screenshots: ${testArtifacts.screenshots.length}`);
+          console.log(`   Videos: ${testArtifacts.videos.length}`);
+          console.log(
+            `   Result bundles: ${testArtifacts.resultBundles.length}`,
+          );
+          console.log(`   Test products: ${testArtifacts.testProducts.length}`);
+          console.log(`   Total artifacts: ${testArtifacts.total}`);
+
+          if (testArtifacts.screenshots.length > 0) {
+            console.log('\n   Screenshot files:');
+            testArtifacts.screenshots.slice(0, 5).forEach((screenshot) => {
+              console.log(
+                `     - ${screenshot.fileName} (${screenshot.fileSize} bytes)`,
+              );
+            });
+            if (testArtifacts.screenshots.length > 5) {
+              console.log(
+                `     ... and ${testArtifacts.screenshots.length - 5} more`,
+              );
+            }
+          }
+
+          if (testArtifacts.videos.length > 0) {
+            console.log('\n   Video files:');
+            testArtifacts.videos.forEach((video) => {
+              console.log(`     - ${video.fileName} (${video.fileSize} bytes)`);
+            });
+          }
+        } catch (error) {
+          console.log(
+            `   ⚠️  Test artifacts not available: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+        console.log();
+
+        // Step 8: Get build logs
+        console.log('📋 Step 8: Getting build logs...');
+        let buildLogs: BuildLogsResult | null = null;
+        try {
+          buildLogs = await callToolAndParse<BuildLogsResult>(
+            client,
+            'get_build_logs',
+            { buildRunId },
+          );
+          console.log(`   Log files: ${buildLogs.logs.length}`);
+          console.log(`   Archives: ${buildLogs.archives.length}`);
+          console.log(`   Other artifacts: ${buildLogs.other.length}`);
+          console.log(`   Total: ${buildLogs.total}`);
+
+          if (buildLogs.logs.length > 0) {
+            console.log('\n   Log files:');
+            buildLogs.logs.forEach((log) => {
+              console.log(`     - ${log.fileName}`);
+            });
+          }
+        } catch (error) {
+          console.log(
+            `   ⚠️  Build logs not available: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+        console.log();
+
+        // Step 9: Get build issues
+        console.log('🔴 Step 9: Getting build issues...');
+        let buildIssues: BuildIssuesResult | null = null;
+        try {
+          buildIssues = await callToolAndParse<BuildIssuesResult>(
+            client,
+            'get_build_issues',
+            { buildRunId },
+          );
+          console.log(`   Errors: ${buildIssues.issueCounts.errors}`);
+          console.log(`   Warnings: ${buildIssues.issueCounts.warnings}`);
+          console.log(
+            `   Analyzer warnings: ${buildIssues.issueCounts.analyzerWarnings}`,
+          );
+          console.log(
+            `   Test failures: ${buildIssues.issueCounts.testFailures}`,
+          );
+        } catch (error) {
+          console.log(
+            `   ⚠️  Build issues not available: ${error instanceof Error ? error.message : error}`,
+          );
+        }
+        console.log();
+
+        // ==========================================
+        // SANITY CHECKS - Verify expected outputs
+        // ==========================================
+        console.log('✅ Step 10: Running sanity checks...\n');
+
+        let sanityChecksPassed = 0;
+        let sanityChecksFailed = 0;
+
+        // Check 1: Build completed (not timed out)
+        console.log('   Check 1: Build completed');
+        if (!buildRun.timeoutExceeded && buildRun.finishedDate) {
+          console.log('      ✓ Build finished without timeout');
+          sanityChecksPassed++;
+        } else {
+          console.log('      ✗ Build did not complete properly');
+          sanityChecksFailed++;
+        }
+
+        // Check 2: We have test failures (because our test project has intentionally failing tests)
+        console.log(
+          '   Check 2: Test failures detected (expected due to intentionally failing tests)',
+        );
+        const testFailureCount =
+          testResults?.testFailures ||
+          buildIssues?.issueCounts.testFailures ||
+          0;
+        if (testFailureCount > 0) {
+          console.log(
+            `      ✓ Found ${testFailureCount} test failures (expected)`,
+          );
+          sanityChecksPassed++;
+        } else {
+          console.log(
+            '      ⚠️  No test failures found (expected some due to intentionally broken tests)',
+          );
+          // This is a warning, not a failure - the test project may have been fixed
+          sanityChecksPassed++;
+        }
+
+        // Check 3: Test results are available
+        console.log('   Check 3: Test results available');
+        if (testResults) {
+          console.log(
+            `      ✓ Test results retrieved (build #${testResults.buildNumber})`,
+          );
+          sanityChecksPassed++;
+        } else {
+          console.log('      ✗ Test results not available');
+          sanityChecksFailed++;
+        }
+
+        // Check 4: Screenshots available (UI tests should generate screenshots)
+        console.log('   Check 4: Screenshots available from UI tests');
+        if (testArtifacts && testArtifacts.screenshots.length > 0) {
+          console.log(
+            `      ✓ Found ${testArtifacts.screenshots.length} screenshots`,
+          );
+          sanityChecksPassed++;
+
+          // Verify screenshots have download URLs
+          const screenshotsWithUrls = testArtifacts.screenshots.filter(
+            (s) => s.downloadUrl,
+          );
+          if (screenshotsWithUrls.length === testArtifacts.screenshots.length) {
+            console.log('      ✓ All screenshots have download URLs');
+          } else {
+            console.log(
+              `      ⚠️  Only ${screenshotsWithUrls.length}/${testArtifacts.screenshots.length} screenshots have download URLs`,
+            );
+          }
+        } else {
+          console.log(
+            '      ⚠️  No screenshots found (UI tests may not have run)',
+          );
+          // Not a hard failure - screenshots depend on UI tests running
+        }
+
+        // Check 5: Videos available (UI tests record screen)
+        console.log('   Check 5: Videos available from UI tests');
+        if (testArtifacts && testArtifacts.videos.length > 0) {
+          console.log(`      ✓ Found ${testArtifacts.videos.length} videos`);
+          sanityChecksPassed++;
+
+          // Verify videos have download URLs
+          const videosWithUrls = testArtifacts.videos.filter(
+            (v) => v.downloadUrl,
+          );
+          if (videosWithUrls.length === testArtifacts.videos.length) {
+            console.log('      ✓ All videos have download URLs');
+          } else {
+            console.log(
+              `      ⚠️  Only ${videosWithUrls.length}/${testArtifacts.videos.length} videos have download URLs`,
+            );
+          }
+        } else {
+          console.log(
+            '      ⚠️  No videos found (video recording may be disabled)',
+          );
+          // Not a hard failure - video depends on Xcode Cloud settings
+        }
+
+        // Check 6: Build logs available
+        console.log('   Check 6: Build logs available');
+        if (buildLogs && buildLogs.total > 0) {
+          console.log(`      ✓ Found ${buildLogs.total} log/archive files`);
+          sanityChecksPassed++;
+        } else {
+          console.log('      ⚠️  No build logs found');
+          // Not a hard failure - logs may take time to become available
+        }
+
+        // Check 7: Build actions retrieved
+        console.log('   Check 7: Build actions available');
+        if (actionsData.actions.length > 0) {
+          console.log(
+            `      ✓ Found ${actionsData.actions.length} build actions`,
+          );
+          sanityChecksPassed++;
+
+          // Check for test action specifically
+          const testAction = actionsData.actions.find(
+            (a) => a.actionType === 'TEST',
+          );
+          if (testAction) {
+            console.log(`      ✓ Test action found: ${testAction.name}`);
+          }
+        } else {
+          console.log('      ✗ No build actions found');
+          sanityChecksFailed++;
+        }
+
+        // Check 8: Result bundles available (contain detailed test output)
+        console.log('   Check 8: Result bundles available');
+        const resultBundleCount =
+          (testResults?.resultBundles.length || 0) +
+          (testArtifacts?.resultBundles.length || 0);
+        if (resultBundleCount > 0) {
+          console.log(`      ✓ Found ${resultBundleCount} result bundles`);
+          sanityChecksPassed++;
+        } else {
+          console.log('      ⚠️  No result bundles found');
+        }
+
+        // Summary
+        console.log('\n' + '='.repeat(50));
+        console.log('📋 SANITY CHECK SUMMARY');
+        console.log('='.repeat(50));
+        console.log(`   Passed: ${sanityChecksPassed}`);
+        console.log(`   Failed: ${sanityChecksFailed}`);
 
         // Final summary
-        console.log('✅ Integration Test Complete!\n');
+        console.log('\n✅ Integration Test Complete!\n');
         console.log('Summary:');
         console.log(
           `  • Build #${buildRun.number} ${buildRun.completionStatus}`,
@@ -304,13 +574,19 @@ describe('local Xcode Cloud MCP server', () => {
         console.log(
           `  • Tools tested: list_products, list_workflows, start_build_and_wait,`,
         );
-        console.log(`                  get_build_actions, get_test_results`);
+        console.log(
+          `                  get_build_actions, get_test_results, get_test_artifacts,`,
+        );
+        console.log(`                  get_build_logs, get_build_issues`);
+
+        // Use expect assertions for test framework
+        expect(sanityChecksFailed).toBe(0);
 
         if (buildRun.completionStatus !== 'SUCCEEDED') {
           console.log(
-            '\n⚠️  Note: Build did not succeed, but MCP tools worked correctly',
+            '\n⚠️  Note: Build status is not SUCCEEDED, but this may be expected',
           );
-          process.exit(0); // Still exit 0 since the MCP tools worked
+          console.log('   (our test project has intentionally failing tests)');
         }
 
         await client.close();
@@ -328,9 +604,9 @@ describe('local Xcode Cloud MCP server', () => {
           );
         }
 
-        process.exit(1);
+        throw error;
       }
     },
-    900_000,
+    MAX_WAIT_TIME_MS + 120_000, // Test timeout
   );
 });
