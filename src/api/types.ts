@@ -207,11 +207,17 @@ export interface CiMacOsVersion {
   };
 }
 
+export interface CiTestDestinationRuntime {
+  runtimeName: string;
+  runtimeIdentifier: string;
+}
+
 export interface CiTestDestination {
   deviceTypeName?: string;
   deviceTypeIdentifier?: string;
   runtimeName?: string;
   runtimeIdentifier?: string;
+  availableRuntimes?: CiTestDestinationRuntime[];
   kind?: 'SIMULATOR' | 'MAC';
 }
 

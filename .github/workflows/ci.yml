@@ -44,3 +44,7 @@ jobs:
 
       - name: Run unit tests
         run: bun test src/
+
+      - name: Run integration tests
+        run: bun test tests/
+        timeout-minutes: 20
