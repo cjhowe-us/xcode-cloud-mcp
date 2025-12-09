@@ -38,7 +38,11 @@ export class MacOsVersionsClient extends BaseAPIClient {
     macOsVersionId: string,
     options?: { limit?: number },
   ): Promise<
-    Array<{ type: string; id: string; attributes: { version: string; name: string } }>
+    Array<{
+      type: string;
+      id: string;
+      attributes: { version: string; name: string };
+    }>
   > {
     const params: Record<string, string> = {};
     if (options?.limit) {
@@ -46,7 +50,11 @@ export class MacOsVersionsClient extends BaseAPIClient {
     }
 
     const response = await this.get<
-      Array<{ type: string; id: string; attributes: { version: string; name: string } }>
+      Array<{
+        type: string;
+        id: string;
+        attributes: { version: string; name: string };
+      }>
     >(`/v1/ciMacOsVersions/${macOsVersionId}/xcodeVersions`, params);
     return response.data;
   }

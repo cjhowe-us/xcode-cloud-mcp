@@ -38,7 +38,11 @@ export class XcodeVersionsClient extends BaseAPIClient {
     xcodeVersionId: string,
     options?: { limit?: number },
   ): Promise<
-    Array<{ type: string; id: string; attributes: { version: string; name: string } }>
+    Array<{
+      type: string;
+      id: string;
+      attributes: { version: string; name: string };
+    }>
   > {
     const params: Record<string, string> = {};
     if (options?.limit) {
@@ -46,7 +50,11 @@ export class XcodeVersionsClient extends BaseAPIClient {
     }
 
     const response = await this.get<
-      Array<{ type: string; id: string; attributes: { version: string; name: string } }>
+      Array<{
+        type: string;
+        id: string;
+        attributes: { version: string; name: string };
+      }>
     >(`/v1/ciXcodeVersions/${xcodeVersionId}/macOsVersions`, params);
     return response.data;
   }
@@ -54,7 +62,9 @@ export class XcodeVersionsClient extends BaseAPIClient {
   /**
    * Get Xcode version with test destinations included
    */
-  async getWithTestDestinations(xcodeVersionId: string): Promise<CiXcodeVersion> {
+  async getWithTestDestinations(
+    xcodeVersionId: string,
+  ): Promise<CiXcodeVersion> {
     const response = await this.get<CiXcodeVersion>(
       `/v1/ciXcodeVersions/${xcodeVersionId}`,
       { 'fields[ciXcodeVersions]': 'name,version,testDestinations' },

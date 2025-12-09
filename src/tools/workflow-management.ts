@@ -6,17 +6,30 @@ import type { CiAction, CiBranchStartCondition } from '../api/types.js';
 
 // Zod schemas for test destination configuration
 const CiTestDestinationSchema = z.object({
-  deviceTypeName: z.string().optional().describe('Device type name (e.g., "iPhone 16")'),
+  deviceTypeName: z
+    .string()
+    .optional()
+    .describe('Device type name (e.g., "iPhone 16")'),
   deviceTypeIdentifier: z
     .string()
     .optional()
-    .describe('Device type identifier (e.g., "com.apple.CoreSimulator.SimDeviceType.iPhone-16")'),
-  runtimeName: z.string().optional().describe('Runtime name (e.g., "iOS 18.1")'),
+    .describe(
+      'Device type identifier (e.g., "com.apple.CoreSimulator.SimDeviceType.iPhone-16")',
+    ),
+  runtimeName: z
+    .string()
+    .optional()
+    .describe('Runtime name (e.g., "iOS 18.1")'),
   runtimeIdentifier: z
     .string()
     .optional()
-    .describe('Runtime identifier (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-1")'),
-  kind: z.enum(['SIMULATOR', 'MAC']).optional().describe('Kind of test destination'),
+    .describe(
+      'Runtime identifier (e.g., "com.apple.CoreSimulator.SimRuntime.iOS-18-1")',
+    ),
+  kind: z
+    .enum(['SIMULATOR', 'MAC'])
+    .optional()
+    .describe('Kind of test destination'),
 });
 
 // Zod schemas for workflow action configuration
@@ -55,7 +68,10 @@ const CiActionSchema = z.object({
         .enum(['USE_SCHEME_SETTINGS', 'SPECIFIC_TEST_PLANS'])
         .optional()
         .describe('Test configuration kind'),
-      testPlanName: z.string().optional().describe('Name of the test plan to use'),
+      testPlanName: z
+        .string()
+        .optional()
+        .describe('Name of the test plan to use'),
       testDestinations: z
         .array(CiTestDestinationSchema)
         .optional()
@@ -185,14 +201,15 @@ export function registerWorkflowManagementTools(
       inputSchema: {
         xcodeVersionId: z
           .string()
-          .describe('The Xcode version ID to get compatible macOS versions for'),
+          .describe(
+            'The Xcode version ID to get compatible macOS versions for',
+          ),
       },
     },
     async ({ xcodeVersionId }: { xcodeVersionId: string }) => {
       try {
-        const versions = await client.xcodeVersions.listMacOsVersions(
-          xcodeVersionId,
-        );
+        const versions =
+          await client.xcodeVersions.listMacOsVersions(xcodeVersionId);
 
         const formatted = versions.map((v) => ({
           id: v.id,
@@ -255,7 +272,8 @@ export function registerWorkflowManagementTools(
                 {
                   xcodeVersionId,
                   xcodeVersion: xcodeVersion.attributes.name,
-                  testDestinations: xcodeVersion.attributes.testDestinations || [],
+                  testDestinations:
+                    xcodeVersion.attributes.testDestinations || [],
                   total: xcodeVersion.attributes.testDestinations?.length || 0,
                 },
                 null,
@@ -370,10 +388,7 @@ export function registerWorkflowManagementTools(
           .boolean()
           .optional()
           .describe('Whether the workflow should be enabled'),
-        clean: z
-          .boolean()
-          .optional()
-          .describe('Whether to run clean builds'),
+        clean: z.boolean().optional().describe('Whether to run clean builds'),
         actions: z
           .array(CiActionSchema)
           .optional()

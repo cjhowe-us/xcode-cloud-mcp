@@ -130,7 +130,9 @@ describe('Xcode Cloud MCP Integration Tests', () => {
     async () => {
       console.log('🚀 Xcode Cloud MCP Integration Test');
       console.log(`Testing with project: ${TEST_APP_NAME}`);
-      console.log('This will CREATE a workflow, trigger a build, and DELETE the workflow\n');
+      console.log(
+        'This will CREATE a workflow, trigger a build, and DELETE the workflow\n',
+      );
 
       // Check for required environment variables
       if (
@@ -210,17 +212,22 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         console.log(`   ID: ${repoData.repository.id}\n`);
 
         // Step 3: Get Xcode versions and test destinations
-        console.log('🛠️  Step 3: Getting Xcode version and test destinations...');
+        console.log(
+          '🛠️  Step 3: Getting Xcode version and test destinations...',
+        );
         const xcodeVersionsData = await callToolAndParse<{
           xcodeVersions: Array<{ id: string; name: string; version: string }>;
         }>(client, 'list_xcode_versions', {});
 
         // Use "Latest Release" Xcode version
-        const latestXcode = xcodeVersionsData.xcodeVersions.find(
-          (v) => v.name === 'Latest Release',
-        ) || xcodeVersionsData.xcodeVersions[0];
+        const latestXcode =
+          xcodeVersionsData.xcodeVersions.find(
+            (v) => v.name === 'Latest Release',
+          ) || xcodeVersionsData.xcodeVersions[0];
 
-        console.log(`   ✓ Using Xcode: ${latestXcode.name} (${latestXcode.version})`);
+        console.log(
+          `   ✓ Using Xcode: ${latestXcode.name} (${latestXcode.version})`,
+        );
 
         // Get test destinations for this Xcode version
         const testDestData = await callToolAndParse<{
@@ -237,20 +244,31 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           process.exit(1);
         }
 
-        console.log(`   ✓ Test destination: ${iosSimulator.deviceTypeName} (${iosSimulator.runtimeName})\n`);
+        console.log(
+          `   ✓ Test destination: ${iosSimulator.deviceTypeName} (${iosSimulator.runtimeName})\n`,
+        );
 
         // Step 4: Get compatible macOS version
         console.log('💻 Step 4: Getting compatible macOS version...');
         const macOsData = await callToolAndParse<{
-          compatibleMacOsVersions: Array<{ id: string; name: string; version: string }>;
-        }>(client, 'list_compatible_macos_versions', { xcodeVersionId: latestXcode.id });
+          compatibleMacOsVersions: Array<{
+            id: string;
+            name: string;
+            version: string;
+          }>;
+        }>(client, 'list_compatible_macos_versions', {
+          xcodeVersionId: latestXcode.id,
+        });
 
         // Use "Latest Release" macOS version
-        const latestMacOs = macOsData.compatibleMacOsVersions.find(
-          (v) => v.name === 'Latest Release',
-        ) || macOsData.compatibleMacOsVersions[0];
+        const latestMacOs =
+          macOsData.compatibleMacOsVersions.find(
+            (v) => v.name === 'Latest Release',
+          ) || macOsData.compatibleMacOsVersions[0];
 
-        console.log(`   ✓ Using macOS: ${latestMacOs.name} (${latestMacOs.version})\n`);
+        console.log(
+          `   ✓ Using macOS: ${latestMacOs.name} (${latestMacOs.version})\n`,
+        );
 
         // Step 5: Create workflow with TEST actions
         console.log('⚙️  Step 5: Creating workflow with TEST actions...');
@@ -265,7 +283,8 @@ describe('Xcode Cloud MCP Integration Tests', () => {
           macOsVersionId: latestMacOs.id,
           name: TEST_WORKFLOW_NAME,
           description: 'Integration test workflow - will be deleted after test',
-          containerFilePath: 'test-fixtures/XcodeCloudMcpTestApp/XcodeCloudMcpTestApp.xcodeproj',
+          containerFilePath:
+            'test-fixtures/XcodeCloudMcpTestApp/XcodeCloudMcpTestApp.xcodeproj',
           actions: [
             {
               name: 'Build - iOS',
@@ -291,7 +310,9 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         });
 
         createdWorkflowId = createWorkflowResult.workflow.id;
-        console.log(`   ✓ Created workflow: ${createWorkflowResult.workflow.name}`);
+        console.log(
+          `   ✓ Created workflow: ${createWorkflowResult.workflow.name}`,
+        );
         console.log(`   ID: ${createdWorkflowId}`);
         console.log(`   Enabled: ${createWorkflowResult.workflow.isEnabled}\n`);
 
@@ -695,7 +716,9 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         console.log(`  • All MCP tools verified with real Xcode Cloud build`);
         console.log('  • Tools tested:');
         console.log('      - list_products, get_repository');
-        console.log('      - list_xcode_versions, get_test_destinations, list_compatible_macos_versions');
+        console.log(
+          '      - list_xcode_versions, get_test_destinations, list_compatible_macos_versions',
+        );
         console.log('      - create_workflow_with_actions, delete_workflow');
         console.log('      - start_build_and_wait, get_build_actions');
         console.log('      - get_test_results, get_test_artifacts');
@@ -727,7 +750,9 @@ describe('Xcode Cloud MCP Integration Tests', () => {
         }
 
         if (createdWorkflowId) {
-          console.error(`   Workflow ID: ${createdWorkflowId} (will be cleaned up)`);
+          console.error(
+            `   Workflow ID: ${createdWorkflowId} (will be cleaned up)`,
+          );
         }
 
         throw error;

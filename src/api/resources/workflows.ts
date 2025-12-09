@@ -88,7 +88,8 @@ export class WorkflowsClient extends BaseAPIClient {
     };
 
     if (params.branchStartCondition) {
-      payload.data.attributes.branchStartCondition = params.branchStartCondition;
+      payload.data.attributes.branchStartCondition =
+        params.branchStartCondition;
     }
 
     if (params.manualBranchStartCondition) {

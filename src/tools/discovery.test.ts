@@ -2,7 +2,12 @@ import { beforeEach, describe, expect, it, mock } from 'bun:test';
 import { registerDiscoveryTools } from './discovery.js';
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { AppStoreConnectClient } from '../api/client.js';
-import type { CiProduct, CiWorkflow, CiXcodeVersion, CiMacOsVersion } from '../api/types.js';
+import type {
+  CiProduct,
+  CiWorkflow,
+  CiXcodeVersion,
+  CiMacOsVersion,
+} from '../api/types.js';
 
 describe('create_workflow tool', () => {
   type ToolHandler = (args: Record<string, unknown>) => Promise<{

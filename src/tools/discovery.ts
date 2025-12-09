@@ -203,7 +203,8 @@ export function registerDiscoveryTools(
                     name: w.attributes.name,
                     isEnabled: w.attributes.isEnabled,
                   })),
-                  repositoryId: primaryRepositoryId ?? 'Use get_repository to find this',
+                  repositoryId:
+                    primaryRepositoryId ?? 'Use get_repository to find this',
                   availableXcodeVersions: xcodeVersions.map((v) => ({
                     id: v.id,
                     name: v.attributes.name,
