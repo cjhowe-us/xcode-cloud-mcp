@@ -1,5 +1,5 @@
 {
-  "servers": {
+  "mcpServers": {
     "XcodeCloud": {
       "command": "bun",
       "args": ["--watch", "start"]
